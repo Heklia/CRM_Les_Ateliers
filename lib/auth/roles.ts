@@ -7,36 +7,7 @@ export type CurrentProfile = {
   role: AppRole;
 };
 
-type SupabaseProfileClient = {
-  auth: {
-    getUser: () => Promise<{
-      data: {
-        user: {
-          id: string;
-          email?: string;
-          user_metadata?: { full_name?: string; name?: string };
-        } | null;
-      };
-      error: unknown;
-    }>;
-  };
-  from: (table: "users") => {
-    select: (columns: string) => {
-      eq: (column: "id", value: string) => {
-        single: () => Promise<{
-          data: {
-            id: string;
-            email: string;
-            full_name: string;
-            role: AppRole;
-          } | null;
-        }>;
-      };
-    };
-  };
-};
-
-export async function getCurrentProfile(supabase: SupabaseProfileClient): Promise<CurrentProfile | null> {
+export async function getCurrentProfile(supabase: any): Promise<CurrentProfile | null> {
   const {
     data: { user },
     error: userError
