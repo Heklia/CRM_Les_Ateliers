@@ -47,22 +47,16 @@ export async function createProspect(
   const recurrencePotential = optionalScaleNumber(formData, "recurrence_potential", "Recurrence potentielle");
   const needMaturity = optionalScaleNumber(formData, "need_maturity", "Maturite du besoin");
 
-  for (const result of [
-    companyName,
-    segmentCode,
-    contactName,
-    website,
-    email,
-    estimatedPotential,
-    projectTimeline,
-    capacityFit,
-    recurrencePotential,
-    needMaturity
-  ]) {
-    if (!result.ok) {
-      return { error: result.error };
-    }
-  }
+  if (!companyName.ok) return { error: companyName.error };
+  if (!segmentCode.ok) return { error: segmentCode.error };
+  if (!contactName.ok) return { error: contactName.error };
+  if (!website.ok) return { error: website.error };
+  if (!email.ok) return { error: email.error };
+  if (!estimatedPotential.ok) return { error: estimatedPotential.error };
+  if (!projectTimeline.ok) return { error: projectTimeline.error };
+  if (!capacityFit.ok) return { error: capacityFit.error };
+  if (!recurrencePotential.ok) return { error: recurrencePotential.error };
+  if (!needMaturity.ok) return { error: needMaturity.error };
 
   const validatedSegmentCode = segmentCode.data;
   const validatedCompanyName = companyName.data;
