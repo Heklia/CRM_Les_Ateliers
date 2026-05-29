@@ -47,8 +47,8 @@ export async function updatePipelineStage({
   }
 
   if (type === "prospect") {
-    const { data, error: findError } = await supabase
-      .from("prospects")
+    const prospectsTable = supabase.from("prospects") as any;
+    const { data, error: findError } = await prospectsTable
       .select("id, commercial_id")
       .eq("id", id)
       .single();
@@ -58,9 +58,7 @@ export async function updatePipelineStage({
       return { ok: false, error: "Prospect introuvable ou non autorise." };
     }
 
-    const { error } = await supabase
-      .from("prospects")
-      .update({
+    const { error } = await prospectsTable.update({
         pipeline_stage: stage,
         status: prospectStatusByStage[stage]
       })
@@ -71,8 +69,8 @@ export async function updatePipelineStage({
       : { ok: true };
   }
 
-  const { data, error: findError } = await supabase
-    .from("opportunites")
+  const opportunitiesTable = supabase.from("opportunites") as any;
+  const { data, error: findError } = await opportunitiesTable
     .select("id, commercial_id")
     .eq("id", id)
     .single();
@@ -83,9 +81,7 @@ export async function updatePipelineStage({
   }
 
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("opportunites")
-    .update({
+  const { error } = await opportunitiesTable.update({
       stage,
       won_at: stage === "gagne" ? now : null,
       lost_at: stage === "perdu" ? now : null
