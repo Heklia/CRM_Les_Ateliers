@@ -26,7 +26,7 @@ export async function createProspect(
   _previousState: CreateProspectState,
   formData: FormData
 ): Promise<CreateProspectState> {
-  const supabase = createClient();
+  const supabase = createClient() as any;
   const {
     data: { user },
     error: userError
@@ -64,6 +64,17 @@ export async function createProspect(
     }
   }
 
+  const validatedSegmentCode = segmentCode.data;
+  const validatedCompanyName = companyName.data;
+  const validatedContactName = contactName.data;
+  const validatedWebsite = website.data;
+  const validatedEmail = email.data;
+  const validatedEstimatedPotential = estimatedPotential.data;
+  const validatedProjectTimeline = projectTimeline.data;
+  const validatedCapacityFit = capacityFit.data;
+  const validatedRecurrencePotential = recurrencePotential.data;
+  const validatedNeedMaturity = needMaturity.data;
+
   const profile = await ensureCommercialProfile(user);
 
   if (!profile.ok) {
@@ -73,30 +84,30 @@ export async function createProspect(
   const { data: segment, error: segmentError } = await supabase
     .from("segments")
     .select("id")
-    .eq("code", segmentCode.data)
+    .eq("code", validatedSegmentCode)
     .single();
 
   if (segmentError || !segment) {
     return { error: "Segment introuvable dans Supabase." };
   }
 
-  const { firstName, lastName } = splitContactName(contactName.data);
+  const { firstName, lastName } = splitContactName(validatedContactName);
 
   const { error: createError } = await supabase.rpc("create_prospect_with_contact", {
     prospect_payload: {
       commercial_id: user.id,
       segment_id: segment.id,
-      company_name: companyName.data,
+      company_name: validatedCompanyName,
       sub_segment: optionalText(formData, "sub_segment"),
       address_line1: optionalText(formData, "address"),
       city: optionalText(formData, "city"),
       postal_code: optionalText(formData, "postal_code"),
-      website: website.data,
-      estimated_potential: estimatedPotential.data,
-      project_timeline: projectTimeline.data,
-      capacity_fit: capacityFit.data,
-      recurrence_potential: recurrencePotential.data,
-      need_maturity: needMaturity.data,
+      website: validatedWebsite,
+      estimated_potential: validatedEstimatedPotential,
+      project_timeline: validatedProjectTimeline,
+      capacity_fit: validatedCapacityFit,
+      recurrence_potential: validatedRecurrencePotential,
+      need_maturity: validatedNeedMaturity,
       notes: optionalText(formData, "notes"),
       source: "terrain",
       status: "nouveau"
@@ -107,7 +118,7 @@ export async function createProspect(
       last_name: lastName,
       job_title: optionalText(formData, "contact_job_title"),
       phone: optionalText(formData, "phone"),
-      email: email.data,
+      email: validatedEmail,
       is_primary: true
     }
   });
@@ -124,7 +135,7 @@ async function ensureCommercialProfile(user: {
   email?: string;
   user_metadata?: { full_name?: string; name?: string };
 }) {
-  const supabase = createClient();
+  const supabase = createClient() as any;
   const { data: existingProfile, error: readError } = await supabase
     .from("users")
     .select("id")
