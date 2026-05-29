@@ -130,7 +130,7 @@ export async function importProspects(
         recurrence_potential: validated.data.recurrencePotential,
         need_maturity: validated.data.needMaturity,
         notes: validated.data.notes,
-        source: "import_csv",
+        source: "autre",
         status: "nouveau"
       },
       contact_payload: {
