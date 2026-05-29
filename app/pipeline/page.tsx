@@ -7,6 +7,28 @@ import { scopeByCommercial } from "@/lib/supabase/role-filters";
 import { calculatePriorityScore } from "@/lib/priority-score";
 import type { OpportunityStage } from "@/lib/types";
 
+type PipelineProspectRow = {
+  id: string;
+  company_name: string;
+  city: string | null;
+  pipeline_stage: string;
+  estimated_potential: number | null;
+  interest_level: number | null;
+  priority_score: number | null;
+  project_timeline: string | null;
+  capacity_fit: number | null;
+  recurrence_potential: number | null;
+  need_maturity: number | null;
+};
+
+type PipelineOpportunityRow = {
+  id: string;
+  prospect_id: string;
+  title: string;
+  stage: string;
+  estimated_value: number | null;
+};
+
 export default async function PipelinePage() {
   const supabase = createClient();
   const profile = await getCurrentProfile(supabase);
@@ -29,12 +51,14 @@ export default async function PipelinePage() {
     scopeByCommercial(opportunitiesQuery, profile)
   ]);
 
+  const prospectRows = (prospects ?? []) as PipelineProspectRow[];
+  const opportunityRows = (opportunities ?? []) as PipelineOpportunityRow[];
   const prospectById = new Map(
-    (prospects ?? []).map((prospect) => [prospect.id, prospect])
+    prospectRows.map((prospect) => [prospect.id, prospect])
   );
 
   const cards: PipelineCard[] = [
-    ...(prospects ?? []).map((prospect) => ({
+    ...prospectRows.map((prospect) => ({
       id: prospect.id,
       type: "prospect" as const,
       title: prospect.company_name,
@@ -51,7 +75,7 @@ export default async function PipelinePage() {
         needMaturity: prospect.need_maturity
       })
     })),
-    ...(opportunities ?? []).map((opportunity) => ({
+    ...opportunityRows.map((opportunity) => ({
       id: opportunity.id,
       type: "opportunite" as const,
       title: opportunity.title,
