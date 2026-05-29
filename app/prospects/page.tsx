@@ -5,6 +5,40 @@ import { createClient } from "@/lib/supabase/server";
 import { scopeByCommercial } from "@/lib/supabase/role-filters";
 import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
 
+type ProspectRow = {
+  id: string;
+  commercial_id: string;
+  segment_id: string;
+  company_name: string;
+  city: string | null;
+  status: string;
+  pipeline_stage: string;
+  estimated_potential: number | null;
+  created_at: string;
+  last_interaction_at: string | null;
+  interest_level: number | null;
+  project_timeline: string;
+  capacity_fit: number | null;
+  recurrence_potential: number | null;
+  need_maturity: number | null;
+};
+
+type ContactRow = {
+  prospect_id: string;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+type UserRow = {
+  id: string;
+  full_name: string;
+};
+
+type SegmentRow = {
+  id: string;
+  code: string;
+};
+
 export default async function ProspectsPage() {
   const supabase = createClient();
   const profile = await getCurrentProfile(supabase);
@@ -32,16 +66,21 @@ export default async function ProspectsPage() {
       supabase.from("segments").select("id, code")
     ]);
 
+  const prospectRows = (prospects ?? []) as ProspectRow[];
+  const contactRows = (contacts ?? []) as ContactRow[];
+  const userRows = (users ?? []) as UserRow[];
+  const segmentRows = (segments ?? []) as SegmentRow[];
+
   const contactByProspect = new Map(
-    (contacts ?? []).map((contact) => [
+    contactRows.map((contact) => [
       contact.prospect_id,
       [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Contact non renseigne"
     ])
   );
-  const userById = new Map((users ?? []).map((user) => [user.id, user.full_name]));
-  const segmentById = new Map((segments ?? []).map((segment) => [segment.id, segment.code]));
+  const userById = new Map(userRows.map((user) => [user.id, user.full_name]));
+  const segmentById = new Map(segmentRows.map((segment) => [segment.id, segment.code]));
 
-  const items: ProspectListItem[] = (prospects ?? []).map((prospect) => ({
+  const items: ProspectListItem[] = prospectRows.map((prospect) => ({
     id: prospect.id,
     company: prospect.company_name,
     contact: contactByProspect.get(prospect.id) ?? "Contact non renseigne",
