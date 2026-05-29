@@ -6,6 +6,10 @@ import { opportunityStages } from "@/lib/constants";
 import type { OpportunityStage } from "@/lib/types";
 
 export type PipelineCardType = "prospect" | "opportunite";
+type CommercialOwner = {
+  id: string;
+  commercial_id: string;
+};
 
 const prospectStatusByStage: Record<OpportunityStage, string> = {
   prospect_identifie: "nouveau",
@@ -43,11 +47,12 @@ export async function updatePipelineStage({
   }
 
   if (type === "prospect") {
-    const { data: prospect, error: findError } = await supabase
+    const { data, error: findError } = await supabase
       .from("prospects")
       .select("id, commercial_id")
       .eq("id", id)
       .single();
+    const prospect = data as CommercialOwner | null;
 
     if (findError || !prospect || !canAccessCommercialData(profile, prospect.commercial_id)) {
       return { ok: false, error: "Prospect introuvable ou non autorise." };
@@ -66,11 +71,12 @@ export async function updatePipelineStage({
       : { ok: true };
   }
 
-  const { data: opportunity, error: findError } = await supabase
+  const { data, error: findError } = await supabase
     .from("opportunites")
     .select("id, commercial_id")
     .eq("id", id)
     .single();
+  const opportunity = data as CommercialOwner | null;
 
   if (findError || !opportunity || !canAccessCommercialData(profile, opportunity.commercial_id)) {
     return { ok: false, error: "Opportunite introuvable ou non autorisee." };
