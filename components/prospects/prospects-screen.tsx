@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Upload } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -69,13 +69,22 @@ export function ProspectsScreen({
         title="Prospects"
         description="Liste de travail pour qualifier les comptes cibles, suivre le pipeline et prioriser les visites terrain."
         action={
-          <Link
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
-            href="/prospects/new"
-          >
-            <Plus size={16} />
-            Ajouter un prospect
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-white px-4 text-sm font-semibold text-foreground transition hover:bg-background"
+              href="/prospects/import"
+            >
+              <Upload size={16} />
+              Importer
+            </Link>
+            <Link
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
+              href="/prospects/new"
+            >
+              <Plus size={16} />
+              Ajouter un prospect
+            </Link>
+          </div>
         }
       />
 
