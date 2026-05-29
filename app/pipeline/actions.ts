@@ -39,7 +39,7 @@ export async function updatePipelineStage({
     return { ok: false, error: "Etape de pipeline invalide." };
   }
 
-  const supabase = createClient();
+  const supabase = createClient() as any;
   const profile = await getCurrentProfile(supabase);
 
   if (!profile) {
