@@ -1,6 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database.types";
-
 export type AppRole = "admin" | "manager" | "commercial";
 
 export type CurrentProfile = {
@@ -10,9 +7,36 @@ export type CurrentProfile = {
   role: AppRole;
 };
 
-export async function getCurrentProfile(
-  supabase: SupabaseClient<Database>
-): Promise<CurrentProfile | null> {
+type SupabaseProfileClient = {
+  auth: {
+    getUser: () => Promise<{
+      data: {
+        user: {
+          id: string;
+          email?: string;
+          user_metadata?: { full_name?: string; name?: string };
+        } | null;
+      };
+      error: unknown;
+    }>;
+  };
+  from: (table: "users") => {
+    select: (columns: string) => {
+      eq: (column: "id", value: string) => {
+        single: () => Promise<{
+          data: {
+            id: string;
+            email: string;
+            full_name: string;
+            role: AppRole;
+          } | null;
+        }>;
+      };
+    };
+  };
+};
+
+export async function getCurrentProfile(supabase: SupabaseProfileClient): Promise<CurrentProfile | null> {
   const {
     data: { user },
     error: userError
