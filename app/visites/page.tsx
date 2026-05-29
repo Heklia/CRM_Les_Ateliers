@@ -1,0 +1,76 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Plus } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusPill } from "@/components/ui/status-pill";
+import { getCurrentProfile } from "@/lib/auth/roles";
+import { createClient } from "@/lib/supabase/server";
+import { scopeByCommercial } from "@/lib/supabase/role-filters";
+
+export default async function VisitesPage() {
+  const supabase = createClient();
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
+  const visitsQuery = supabase
+    .from("visites")
+    .select("id, prospect_id, commercial_id, visite_date, type, resume, niveau_interet")
+    .order("visite_date", { ascending: false });
+
+  const [{ data: visits }, { data: prospects }] = await Promise.all([
+    scopeByCommercial(visitsQuery, profile),
+    scopeByCommercial(
+      supabase.from("prospects").select("id, company_name, commercial_id"),
+      profile
+    )
+  ]);
+
+  const prospectById = new Map(
+    (prospects ?? []).map((prospect) => [prospect.id, prospect.company_name])
+  );
+
+  return (
+    <main>
+      <PageHeader
+        title="Visites"
+        description="Comptes-rendus terrain, niveau d'interet et prochaines relances."
+        action={
+          <Link
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
+            href="/visites/new"
+          >
+            <Plus size={16} />
+            Nouveau compte-rendu
+          </Link>
+        }
+      />
+      <div className="grid gap-4">
+        {(visits ?? []).map((visit) => (
+          <article className="rounded-lg border border-border bg-surface p-5 shadow-soft" key={visit.id}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="font-semibold">{prospectById.get(visit.prospect_id) ?? "Prospect"}</h2>
+                <p className="mt-1 text-sm text-muted">{visit.resume}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusPill>{visit.type}</StatusPill>
+                <span className="text-sm text-muted">{formatDate(visit.visite_date)}</span>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </main>
+  );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(new Date(value));
+}
