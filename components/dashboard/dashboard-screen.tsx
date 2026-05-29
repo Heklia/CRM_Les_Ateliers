@@ -19,9 +19,53 @@ import {
   opportunityStages,
   segmentLabels
 } from "@/lib/constants";
-import { followUps, opportunities, prospects, visits } from "@/lib/mock-data";
 import { calculatePriorityScore, getPriorityTone } from "@/lib/priority-score";
 import type { OpportunityStage, SegmentCode } from "@/lib/types";
+
+type DashboardProspect = {
+  id: string;
+  company: string;
+  commercial: string;
+  segment: SegmentCode;
+  pipelineStage: OpportunityStage;
+  estimatedPotential: number;
+  createdAt: string;
+  interest: number;
+  projectTimeline: string;
+  capacityFit: number;
+  recurrencePotential: number;
+  needMaturity: number;
+};
+
+type DashboardOpportunity = {
+  id: string;
+  company: string;
+  title: string;
+  commercial: string;
+  segment: SegmentCode;
+  stage: OpportunityStage;
+  value: number;
+  createdAt: string;
+};
+
+type DashboardVisit = {
+  id: string;
+  commercial: string;
+  date: string;
+};
+
+type DashboardFollowUp = {
+  id: string;
+  company: string;
+  commercial: string;
+  dueAt: string;
+  status: "a_faire" | "fait";
+};
+
+const prospects: DashboardProspect[] = [];
+const opportunities: DashboardOpportunity[] = [];
+const visits: DashboardVisit[] = [];
+const followUps: DashboardFollowUp[] = [];
 
 const periodOptions = [
   { label: "30 derniers jours", value: "30" },
@@ -85,6 +129,7 @@ export function DashboardScreen() {
     ...potentialBySegment.map((item) => item.value),
     1
   );
+  const hasSegmentPotential = potentialBySegment.some((item) => item.value > 0);
 
   return (
     <main>
@@ -177,20 +222,24 @@ export function DashboardScreen() {
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <h2 className="text-base font-semibold">CA potentiel par segment</h2>
           <div className="mt-5 space-y-4">
-            {potentialBySegment.map((item) => (
-              <div key={item.segment}>
-                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium">{segmentLabels[item.segment]}</span>
-                  <span className="text-muted">{formatCurrency(item.value)}</span>
+            {hasSegmentPotential ? (
+              potentialBySegment.map((item) => (
+                <div key={item.segment}>
+                  <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">{segmentLabels[item.segment]}</span>
+                    <span className="text-muted">{formatCurrency(item.value)}</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-background">
+                    <div
+                      className="h-3 rounded-full bg-primary"
+                      style={{ width: `${Math.max((item.value / maxSegmentPotential) * 100, 4)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-3 rounded-full bg-background">
-                  <div
-                    className="h-3 rounded-full bg-primary"
-                    style={{ width: `${Math.max((item.value / maxSegmentPotential) * 100, 4)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-muted">Aucune donnee disponible.</p>
+            )}
           </div>
         </div>
 
@@ -240,20 +289,28 @@ export function DashboardScreen() {
               </tr>
             </thead>
             <tbody>
-              {bestOpportunities.map((opportunity) => (
-                <tr className="border-b border-border last:border-0" key={opportunity.id}>
-                  <td className="py-3 font-medium">{opportunity.title}</td>
-                  <td>{opportunity.company}</td>
-                  <td>{segmentLabels[opportunity.segment]}</td>
-                  <td><StatusPill>{opportunityStageLabels[opportunity.stage]}</StatusPill></td>
-                  <td>
-                    <StatusPill tone={getPriorityTone(prospectScoreByCompany.get(opportunity.company) ?? 0)}>
-                      {prospectScoreByCompany.get(opportunity.company) ?? 0}/100
-                    </StatusPill>
+              {bestOpportunities.length ? (
+                bestOpportunities.map((opportunity) => (
+                  <tr className="border-b border-border last:border-0" key={opportunity.id}>
+                    <td className="py-3 font-medium">{opportunity.title}</td>
+                    <td>{opportunity.company}</td>
+                    <td>{segmentLabels[opportunity.segment]}</td>
+                    <td><StatusPill>{opportunityStageLabels[opportunity.stage]}</StatusPill></td>
+                    <td>
+                      <StatusPill tone={getPriorityTone(prospectScoreByCompany.get(opportunity.company) ?? 0)}>
+                        {prospectScoreByCompany.get(opportunity.company) ?? 0}/100
+                      </StatusPill>
+                    </td>
+                    <td className="text-right font-semibold">{formatCurrency(opportunity.value)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="py-6 text-center text-muted" colSpan={6}>
+                    Aucune opportunite disponible.
                   </td>
-                  <td className="text-right font-semibold">{formatCurrency(opportunity.value)}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -287,7 +344,7 @@ function isToday(value: string) {
   return date.toISOString().slice(0, 10) === "2026-05-29";
 }
 
-function getPotentialBySegment(items: typeof prospects) {
+function getPotentialBySegment(items: DashboardProspect[]) {
   return (Object.keys(segmentLabels) as SegmentCode[]).map((segment) => ({
     segment,
     value: items
@@ -296,7 +353,7 @@ function getPotentialBySegment(items: typeof prospects) {
   }));
 }
 
-function getProspectScore(prospect: (typeof prospects)[number]) {
+function getProspectScore(prospect: DashboardProspect) {
   return calculatePriorityScore({
     interestLevel: prospect.interest,
     estimatedBudget: prospect.estimatedPotential,
@@ -307,7 +364,7 @@ function getProspectScore(prospect: (typeof prospects)[number]) {
   });
 }
 
-function rateForStage(items: typeof prospects, stage: OpportunityStage) {
+function rateForStage(items: DashboardProspect[], stage: OpportunityStage) {
   if (items.length === 0) {
     return 0;
   }
