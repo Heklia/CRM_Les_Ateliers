@@ -7,6 +7,20 @@ import { getCurrentProfile } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { scopeByCommercial } from "@/lib/supabase/role-filters";
 
+type VisitRow = {
+  id: string;
+  prospect_id: string;
+  visite_date: string;
+  type: string;
+  resume: string;
+  niveau_interet: number | null;
+};
+
+type ProspectRow = {
+  id: string;
+  company_name: string;
+};
+
 export default async function VisitesPage() {
   const supabase = createClient();
   const profile = await getCurrentProfile(supabase);
@@ -28,8 +42,10 @@ export default async function VisitesPage() {
     )
   ]);
 
+  const visitRows = (visits ?? []) as VisitRow[];
+  const prospectRows = (prospects ?? []) as ProspectRow[];
   const prospectById = new Map(
-    (prospects ?? []).map((prospect) => [prospect.id, prospect.company_name])
+    prospectRows.map((prospect) => [prospect.id, prospect.company_name])
   );
 
   return (
@@ -48,7 +64,7 @@ export default async function VisitesPage() {
         }
       />
       <div className="grid gap-4">
-        {(visits ?? []).map((visit) => (
+        {visitRows.map((visit) => (
           <article className="rounded-lg border border-border bg-surface p-5 shadow-soft" key={visit.id}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
