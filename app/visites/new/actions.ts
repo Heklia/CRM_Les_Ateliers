@@ -28,7 +28,7 @@ export async function createVisitReport(
   _previousState: CreateVisitState,
   formData: FormData
 ): Promise<CreateVisitState> {
-  const supabase = createClient();
+  const supabase = createClient() as any;
   const profile = await getCurrentProfile(supabase);
 
   if (!profile) {
@@ -44,16 +44,28 @@ export async function createVisitReport(
   const budget = optionalNonNegativeNumber(formData, "budget_estime", "Budget estime");
   const followUpDate = optionalDateTime(formData, "prochaine_relance_at", "Date de relance");
 
-  for (const result of [prospectId, visitDate, contactType, need, nextActions, interest, budget, followUpDate]) {
-    if (!result.ok) {
-      return { error: result.error };
-    }
-  }
+  if (!prospectId.ok) return { error: prospectId.error };
+  if (!visitDate.ok) return { error: visitDate.error };
+  if (!contactType.ok) return { error: contactType.error };
+  if (!need.ok) return { error: need.error };
+  if (!nextActions.ok) return { error: nextActions.error };
+  if (!interest.ok) return { error: interest.error };
+  if (!budget.ok) return { error: budget.error };
+  if (!followUpDate.ok) return { error: followUpDate.error };
+
+  const validatedProspectId = prospectId.data;
+  const validatedVisitDate = visitDate.data;
+  const validatedContactType = contactType.data;
+  const validatedNeed = need.data;
+  const validatedNextActions = nextActions.data;
+  const validatedInterest = interest.data;
+  const validatedBudget = budget.data;
+  const validatedFollowUpDate = followUpDate.data;
 
   const { data: prospect, error: prospectError } = await supabase
     .from("prospects")
     .select("id, commercial_id")
-    .eq("id", prospectId.data)
+    .eq("id", validatedProspectId)
     .single();
 
   if (prospectError || !prospect) {
@@ -65,22 +77,22 @@ export async function createVisitReport(
   }
 
   const { error: visitError } = await supabase.from("visites").insert({
-    prospect_id: prospectId.data,
+    prospect_id: validatedProspectId,
     commercial_id: prospect.commercial_id,
-    visite_date: visitDate.data,
-    type: contactType.data,
+    visite_date: validatedVisitDate,
+    type: validatedContactType,
     statut: "realisee",
     personnes_rencontrees: optionalText(formData, "personnes_rencontrees"),
     resume: buildSummary(formData),
-    besoins: need.data,
+    besoins: validatedNeed,
     freins: optionalText(formData, "freins"),
     application_envisagee: optionalText(formData, "application_envisagee"),
     matiere_procede: optionalText(formData, "matiere_procede"),
-    budget_estime: budget.data,
+    budget_estime: validatedBudget,
     delai_projet: optionalText(formData, "delai_projet"),
-    niveau_interet: interestMap[interest.data],
-    prochaine_etape: nextActions.data,
-    prochaine_relance_at: followUpDate.data,
+    niveau_interet: interestMap[validatedInterest],
+    prochaine_etape: validatedNextActions,
+    prochaine_relance_at: validatedFollowUpDate,
     commentaire: optionalText(formData, "commentaire")
   });
 
@@ -91,10 +103,10 @@ export async function createVisitReport(
   const { error: updateError } = await supabase
     .from("prospects")
     .update({
-      last_interaction_at: visitDate.data,
-      interest_level: interestMap[interest.data]
+      last_interaction_at: validatedVisitDate,
+      interest_level: interestMap[validatedInterest]
     })
-    .eq("id", prospectId.data);
+    .eq("id", validatedProspectId);
 
   if (updateError) {
     return {
