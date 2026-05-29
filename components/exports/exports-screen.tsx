@@ -11,9 +11,59 @@ import {
   statusLabels
 } from "@/lib/constants";
 import { downloadCsv } from "@/lib/csv";
-import { followUps, opportunities, prospects, visits } from "@/lib/mock-data";
 import { calculatePriorityScore } from "@/lib/priority-score";
-import type { SegmentCode } from "@/lib/types";
+import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
+
+type ExportProspect = {
+  company: string;
+  contact: string;
+  commercial: string;
+  city: string;
+  segment: SegmentCode;
+  status: ProspectStatus;
+  pipelineStage: OpportunityStage;
+  estimatedPotential: number;
+  createdAt: string;
+  lastVisit: string | null;
+  interest: number;
+  projectTimeline: string;
+  capacityFit: number | null;
+  recurrencePotential: number | null;
+  needMaturity: number | null;
+  nextAction: string;
+};
+
+type ExportVisit = {
+  company: string;
+  commercial: string;
+  date: string;
+  type: string;
+  summary: string;
+  interest: number;
+};
+
+type ExportOpportunity = {
+  title: string;
+  company: string;
+  commercial: string;
+  segment: SegmentCode;
+  stage: OpportunityStage;
+  value: number;
+  probability: number;
+  createdAt: string;
+};
+
+type ExportFollowUp = {
+  company: string;
+  commercial: string;
+  dueAt: string;
+  status: string;
+};
+
+const prospects: ExportProspect[] = [];
+const visits: ExportVisit[] = [];
+const opportunities: ExportOpportunity[] = [];
+const followUps: ExportFollowUp[] = [];
 
 const periodOptions = [
   { label: "30 derniers jours", value: "30" },
@@ -104,7 +154,7 @@ export function ExportsScreen() {
       onClick: () => exportFollowUps(filtered.followUps)
     },
     {
-      count: Object.keys(segmentLabels).length,
+      count: filtered.prospects.length,
       description: "Synthese du volume et du potentiel par segment.",
       label: "Synthese par segment",
       onClick: () => exportSegmentSummary(filtered.prospects, filtered.opportunities)
@@ -190,7 +240,7 @@ export function ExportsScreen() {
   );
 }
 
-function exportProspects(items: typeof prospects) {
+function exportProspects(items: ExportProspect[]) {
   downloadCsv(
     "prospects.csv",
     items.map((prospect) => ({
@@ -210,7 +260,7 @@ function exportProspects(items: typeof prospects) {
   );
 }
 
-function exportVisits(items: typeof visits) {
+function exportVisits(items: ExportVisit[]) {
   downloadCsv(
     "visites-realisees.csv",
     items.map((visit) => ({
@@ -224,7 +274,7 @@ function exportVisits(items: typeof visits) {
   );
 }
 
-function exportOpportunities(items: typeof opportunities) {
+function exportOpportunities(items: ExportOpportunity[]) {
   downloadCsv(
     "opportunites.csv",
     items.map((opportunity) => ({
@@ -240,7 +290,7 @@ function exportOpportunities(items: typeof opportunities) {
   );
 }
 
-function exportFollowUps(items: typeof followUps) {
+function exportFollowUps(items: ExportFollowUp[]) {
   downloadCsv(
     "relances-a-venir.csv",
     items.map((followUp) => ({
@@ -253,37 +303,39 @@ function exportFollowUps(items: typeof followUps) {
 }
 
 function exportSegmentSummary(
-  prospectItems: typeof prospects,
-  opportunityItems: typeof opportunities
+  prospectItems: ExportProspect[],
+  opportunityItems: ExportOpportunity[]
 ) {
   downloadCsv(
     "synthese-par-segment.csv",
-    (Object.keys(segmentLabels) as SegmentCode[]).map((segment) => {
-      const segmentProspects = prospectItems.filter((prospect) => prospect.segment === segment);
-      const segmentOpportunities = opportunityItems.filter(
-        (opportunity) => opportunity.segment === segment
-      );
+    prospectItems.length || opportunityItems.length
+      ? (Object.keys(segmentLabels) as SegmentCode[]).map((segment) => {
+          const segmentProspects = prospectItems.filter((prospect) => prospect.segment === segment);
+          const segmentOpportunities = opportunityItems.filter(
+            (opportunity) => opportunity.segment === segment
+          );
 
-      return {
-        segment: segmentLabels[segment],
-        prospects: segmentProspects.length,
-        opportunites: segmentOpportunities.length,
-        ca_potentiel_prospects: segmentProspects.reduce(
-          (sum, prospect) => sum + prospect.estimatedPotential,
-          0
-        ),
-        ca_potentiel_opportunites: segmentOpportunities.reduce(
-          (sum, opportunity) => sum + opportunity.value,
-          0
-        ),
-        score_priorite_moyen: segmentProspects.length
-          ? Math.round(
-              segmentProspects.reduce((sum, prospect) => sum + getProspectScore(prospect), 0) /
-                segmentProspects.length
-            )
-          : 0
-      };
-    })
+          return {
+            segment: segmentLabels[segment],
+            prospects: segmentProspects.length,
+            opportunites: segmentOpportunities.length,
+            ca_potentiel_prospects: segmentProspects.reduce(
+              (sum, prospect) => sum + prospect.estimatedPotential,
+              0
+            ),
+            ca_potentiel_opportunites: segmentOpportunities.reduce(
+              (sum, opportunity) => sum + opportunity.value,
+              0
+            ),
+            score_priorite_moyen: segmentProspects.length
+              ? Math.round(
+                  segmentProspects.reduce((sum, prospect) => sum + getProspectScore(prospect), 0) /
+                    segmentProspects.length
+                )
+              : 0
+          };
+        })
+      : []
   );
 }
 
@@ -307,7 +359,7 @@ function createPeriodFilter(period: string) {
   };
 }
 
-function getProspectScore(prospect: (typeof prospects)[number]) {
+function getProspectScore(prospect: ExportProspect) {
   return calculatePriorityScore({
     interestLevel: prospect.interest,
     estimatedBudget: prospect.estimatedPotential,
