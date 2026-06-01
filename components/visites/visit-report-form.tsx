@@ -128,9 +128,18 @@ export function VisitReportForm({
         <summary className="cursor-pointer text-sm font-semibold">Detail du projet</summary>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Field
-            label="Personnes rencontrees"
-            name="personnes_rencontrees"
-            placeholder="Noms, roles, participants"
+            label="Besoin identifie"
+            name="besoins"
+            placeholder="Besoin exprime ou observe"
+            required
+          />
+          <Field
+            label="k€ estime"
+            min="0"
+            name="budget_estime"
+            placeholder="15"
+            step="1"
+            type="number"
           />
           <Field
             label="Douleur principale"
@@ -168,21 +177,6 @@ export function VisitReportForm({
           <option value="perdu">Perdu</option>
         </select>
       </label>
-
-      <Field
-        label="Besoin identifie"
-        name="besoins"
-        placeholder="Besoin exprime ou observe"
-        required
-      />
-      <Field
-        label="k€ estime"
-        min="0"
-        name="budget_estime"
-        placeholder="15"
-        step="1"
-        type="number"
-      />
 
       <div className="lg:col-span-2">
         <span className="block text-sm font-medium">Niveau d'interet</span>

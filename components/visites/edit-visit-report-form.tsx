@@ -158,9 +158,18 @@ export function EditVisitReportForm({
         <summary className="cursor-pointer text-sm font-semibold">Detail du projet</summary>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Field
-            defaultValue={visit.peopleMet ?? ""}
-            label="Personnes rencontrees"
-            name="personnes_rencontrees"
+            defaultValue={visit.need}
+            label="Besoin identifie"
+            name="besoins"
+            required
+          />
+          <Field
+            defaultValue={visit.budget ?? ""}
+            label="k€ estime"
+            min="0"
+            name="budget_estime"
+            step="1"
+            type="number"
           />
           <Field
             defaultValue={visit.pain ?? ""}
@@ -199,21 +208,6 @@ export function EditVisitReportForm({
           <option value="perdu">Perdu</option>
         </select>
       </label>
-
-      <Field
-        defaultValue={visit.need}
-        label="Besoin identifie"
-        name="besoins"
-        required
-      />
-      <Field
-        defaultValue={visit.budget ?? ""}
-        label="k€ estime"
-        min="0"
-        name="budget_estime"
-        step="1"
-        type="number"
-      />
 
       <div className="lg:col-span-2">
         <span className="block text-sm font-medium">Niveau d'interet</span>
