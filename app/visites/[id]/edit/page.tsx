@@ -114,7 +114,7 @@ export default async function EditVisitPage({
           pain: visitRow.freins,
           application: visitRow.application_envisagee,
           material: visitRow.matiere_procede,
-          budget: visitRow.budget_estime,
+          budget: visitRow.budget_estime === null ? null : visitRow.budget_estime / 1000,
           timeline: visitRow.delai_projet,
           interest: toInterestLabel(visitRow.niveau_interet),
           prospectStatus: currentProspect?.status ?? "en_cours",

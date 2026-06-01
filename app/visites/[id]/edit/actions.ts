@@ -106,7 +106,7 @@ export async function updateVisitReport(
       freins: optionalText(formData, "freins"),
       application_envisagee: optionalText(formData, "application_envisagee"),
       matiere_procede: optionalText(formData, "matiere_procede"),
-      budget_estime: budget.data,
+      budget_estime: budget.data === null ? null : budget.data * 1000,
       delai_projet: optionalText(formData, "delai_projet"),
       niveau_interet: interestMap[interest.data],
       prochaine_etape: nextActions.data,

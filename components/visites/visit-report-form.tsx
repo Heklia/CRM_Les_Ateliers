@@ -124,6 +124,37 @@ export function VisitReportForm({
         </select>
       </label>
 
+      <details className="rounded-md border border-border p-3 lg:col-span-2">
+        <summary className="cursor-pointer text-sm font-semibold">Detail du projet</summary>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Field
+            label="Personnes rencontrees"
+            name="personnes_rencontrees"
+            placeholder="Noms, roles, participants"
+          />
+          <Field
+            label="Douleur principale"
+            name="freins"
+            placeholder="Probleme, contrainte, frein actuel"
+          />
+          <Field
+            label="Application envisagee"
+            name="application_envisagee"
+            placeholder="Usage, produit, projet cible"
+          />
+          <Field
+            label="Matiere ou procede concerne"
+            name="matiere_procede"
+            placeholder="Usinage 3D, rotomoulage, mineral, composite..."
+          />
+          <Field
+            label="Delai projet"
+            name="delai_projet"
+            placeholder="Immediat, 3 mois, T4..."
+          />
+        </div>
+      </details>
+
       <label className="block text-sm font-medium">
         Statut du prospect apres action
         <select
@@ -144,20 +175,14 @@ export function VisitReportForm({
         placeholder="Besoin exprime ou observe"
         required
       />
-      <label className="block text-sm font-medium">
-        Prochaine action
-        <select
-          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          name="prochaine_etape"
-          required
-        >
-          <option value="appel">Appel</option>
-          <option value="email">Email</option>
-          <option value="visite_terrain">Visite terrain</option>
-          <option value="salon">Salon</option>
-          <option value="autre">Autre</option>
-        </select>
-      </label>
+      <Field
+        label="k€ estime"
+        min="0"
+        name="budget_estime"
+        placeholder="15"
+        step="1"
+        type="number"
+      />
 
       <div className="lg:col-span-2">
         <span className="block text-sm font-medium">Niveau d'interet</span>
@@ -186,46 +211,22 @@ export function VisitReportForm({
         </div>
       </div>
 
-      <Field label="Date de l'action a realiser" name="prochaine_relance_at" type="date" />
+      <label className="block text-sm font-medium">
+        Prochaine action
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          name="prochaine_etape"
+          required
+        >
+          <option value="appel">Appel</option>
+          <option value="email">Email</option>
+          <option value="visite_terrain">Visite terrain</option>
+          <option value="salon">Salon</option>
+          <option value="autre">Autre</option>
+        </select>
+      </label>
 
-      <details className="rounded-md border border-border p-3 lg:col-span-2">
-        <summary className="cursor-pointer text-sm font-semibold">Details projet</summary>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Field
-            label="Personnes rencontrees"
-            name="personnes_rencontrees"
-            placeholder="Noms, roles, participants"
-          />
-          <Field
-            label="Douleur principale"
-            name="freins"
-            placeholder="Probleme, contrainte, frein actuel"
-          />
-          <Field
-            label="Application envisagee"
-            name="application_envisagee"
-            placeholder="Usage, produit, projet cible"
-          />
-          <Field
-            label="Matiere ou procede concerne"
-            name="matiere_procede"
-            placeholder="Usinage 3D, rotomoulage, mineral, composite..."
-          />
-          <Field
-            label="Budget estime"
-            min="0"
-            name="budget_estime"
-            placeholder="15000"
-            step="100"
-            type="number"
-          />
-          <Field
-            label="Delai projet"
-            name="delai_projet"
-            placeholder="Immediat, 3 mois, T4..."
-          />
-        </div>
-      </details>
+      <Field label="Date prochaine action" name="prochaine_relance_at" type="date" />
 
       <div className="lg:col-span-2">
         <Field

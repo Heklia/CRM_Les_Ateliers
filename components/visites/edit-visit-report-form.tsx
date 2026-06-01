@@ -154,6 +154,37 @@ export function EditVisitReportForm({
         </select>
       </label>
 
+      <details className="rounded-md border border-border p-3 lg:col-span-2" open>
+        <summary className="cursor-pointer text-sm font-semibold">Detail du projet</summary>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Field
+            defaultValue={visit.peopleMet ?? ""}
+            label="Personnes rencontrees"
+            name="personnes_rencontrees"
+          />
+          <Field
+            defaultValue={visit.pain ?? ""}
+            label="Douleur principale"
+            name="freins"
+          />
+          <Field
+            defaultValue={visit.application ?? ""}
+            label="Application envisagee"
+            name="application_envisagee"
+          />
+          <Field
+            defaultValue={visit.material ?? ""}
+            label="Matiere ou procede concerne"
+            name="matiere_procede"
+          />
+          <Field
+            defaultValue={visit.timeline ?? ""}
+            label="Delai projet"
+            name="delai_projet"
+          />
+        </div>
+      </details>
+
       <label className="block text-sm font-medium">
         Statut du prospect apres action
         <select
@@ -175,21 +206,14 @@ export function EditVisitReportForm({
         name="besoins"
         required
       />
-      <label className="block text-sm font-medium">
-        Prochaine action
-        <select
-          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          defaultValue={getNextActionValue(visit.nextStep)}
-          name="prochaine_etape"
-          required
-        >
-          <option value="appel">Appel</option>
-          <option value="email">Email</option>
-          <option value="visite_terrain">Visite terrain</option>
-          <option value="salon">Salon</option>
-          <option value="autre">Autre</option>
-        </select>
-      </label>
+      <Field
+        defaultValue={visit.budget ?? ""}
+        label="k€ estime"
+        min="0"
+        name="budget_estime"
+        step="1"
+        type="number"
+      />
 
       <div className="lg:col-span-2">
         <span className="block text-sm font-medium">Niveau d'interet</span>
@@ -218,51 +242,28 @@ export function EditVisitReportForm({
         </div>
       </div>
 
+      <label className="block text-sm font-medium">
+        Prochaine action
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          defaultValue={getNextActionValue(visit.nextStep)}
+          name="prochaine_etape"
+          required
+        >
+          <option value="appel">Appel</option>
+          <option value="email">Email</option>
+          <option value="visite_terrain">Visite terrain</option>
+          <option value="salon">Salon</option>
+          <option value="autre">Autre</option>
+        </select>
+      </label>
+
       <Field
         defaultValue={visit.followUpAt ? toDate(visit.followUpAt) : ""}
-        label="Date de l'action a realiser"
+        label="Date prochaine action"
         name="prochaine_relance_at"
         type="date"
       />
-
-      <details className="rounded-md border border-border p-3 lg:col-span-2" open>
-        <summary className="cursor-pointer text-sm font-semibold">Details projet</summary>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Field
-            defaultValue={visit.peopleMet ?? ""}
-            label="Personnes rencontrees"
-            name="personnes_rencontrees"
-          />
-          <Field
-            defaultValue={visit.pain ?? ""}
-            label="Douleur principale"
-            name="freins"
-          />
-          <Field
-            defaultValue={visit.application ?? ""}
-            label="Application envisagee"
-            name="application_envisagee"
-          />
-          <Field
-            defaultValue={visit.material ?? ""}
-            label="Matiere ou procede concerne"
-            name="matiere_procede"
-          />
-          <Field
-            defaultValue={visit.budget ?? ""}
-            label="Budget estime"
-            min="0"
-            name="budget_estime"
-            step="100"
-            type="number"
-          />
-          <Field
-            defaultValue={visit.timeline ?? ""}
-            label="Delai projet"
-            name="delai_projet"
-          />
-        </div>
-      </details>
 
       <div className="lg:col-span-2">
         <Field

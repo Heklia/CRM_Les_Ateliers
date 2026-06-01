@@ -64,7 +64,7 @@ export async function createVisitReport(
   const validatedNextActions = nextActions.data;
   const validatedInterest = interest.data;
   const validatedProspectStatus = prospectStatus.data;
-  const validatedBudget = budget.data;
+  const validatedBudget = budget.data === null ? null : budget.data * 1000;
   const validatedFollowUpDate = followUpDate.data;
 
   const { data: prospect, error: prospectError } = await supabase
