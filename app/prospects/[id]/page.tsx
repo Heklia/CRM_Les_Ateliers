@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarPlus, Pencil } from "lucide-react";
+import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getCurrentProfile } from "@/lib/auth/roles";
@@ -24,6 +25,7 @@ type SegmentRow = {
 };
 
 type ContactRow = {
+  id: string;
   first_name: string | null;
   last_name: string | null;
   job_title: string | null;
@@ -60,10 +62,9 @@ export default async function ProspectDetailPage({
       supabase.from("segments").select("id, code"),
       supabase
         .from("contacts")
-        .select("first_name, last_name, job_title, phone, email, is_primary")
+        .select("id, first_name, last_name, job_title, phone, email, is_primary")
         .eq("prospect_id", params.id)
-        .order("is_primary", { ascending: false })
-        .limit(1),
+        .order("is_primary", { ascending: false }),
       supabase
         .from("visites")
         .select("id, visite_date, type, resume")
@@ -77,12 +78,17 @@ export default async function ProspectDetailPage({
 
   const prospectRow = prospect as ProspectRow;
   const segmentRows = (segments ?? []) as SegmentRow[];
-  const contact = ((contacts ?? []) as ContactRow[])[0];
+  const contactRows = (contacts ?? []) as ContactRow[];
   const visitRows = (visits ?? []) as VisitRow[];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
   const segmentCode = (segment?.code ?? "agencements_decoratifs") as SegmentCode;
-  const contactName =
-    [contact?.first_name, contact?.last_name].filter(Boolean).join(" ") || "Contact non renseigne";
+  const contactItems = contactRows.map((contact) => ({
+    id: contact.id,
+    name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Contact non renseigne",
+    jobTitle: contact.job_title,
+    phone: contact.phone,
+    email: contact.email
+  }));
 
   return (
     <main>
@@ -104,10 +110,6 @@ export default async function ProspectDetailPage({
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <h2 className="text-base font-semibold">Informations</h2>
           <dl className="mt-4 space-y-3 text-sm">
-            <InfoRow label="Contact" value={contactName} />
-            <InfoRow label="Fonction" value={contact?.job_title ?? "Non renseignee"} />
-            <InfoRow label="Telephone" value={contact?.phone ?? "Non renseigne"} />
-            <InfoRow label="Email" value={contact?.email ?? "Non renseigne"} />
             <div className="flex justify-between gap-4">
               <dt className="text-muted">Statut</dt>
               <dd>
@@ -121,6 +123,8 @@ export default async function ProspectDetailPage({
             <InfoRow label="Commentaire" value={prospectRow.notes ?? "Aucun commentaire"} />
           </dl>
         </div>
+
+        <ProspectContactsTabs contacts={contactItems} prospectId={prospectRow.id} />
 
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <div className="flex items-center justify-between gap-3">
