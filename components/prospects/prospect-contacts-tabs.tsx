@@ -30,8 +30,21 @@ export function ProspectContactsTabs({
 
   return (
     <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">Contacts</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Contacts du prospect</h2>
+          <p className="mt-1 text-sm text-muted">
+            Consultez les contacts existants ou ajoutez une nouvelle personne rattachee a ce prospect.
+          </p>
+        </div>
+        <button
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
+          onClick={() => setActiveTab("new")}
+          type="button"
+        >
+          <Plus size={16} />
+          Nouveau contact
+        </button>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 border-b border-border pb-3">
@@ -51,7 +64,7 @@ export function ProspectContactsTabs({
         ))}
         <button
           aria-label="Creer un nouveau contact"
-          className={`inline-flex size-10 items-center justify-center rounded-md ${
+          className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold ${
             showNewContact
               ? "bg-primary text-white"
               : "border border-border bg-white text-muted hover:bg-background hover:text-foreground"
@@ -59,7 +72,8 @@ export function ProspectContactsTabs({
           onClick={() => setActiveTab("new")}
           type="button"
         >
-          <Plus size={18} />
+          <Plus size={16} />
+          Ajouter
         </button>
       </div>
 
@@ -87,6 +101,8 @@ function NewContactForm({ prospectId }: { prospectId: string }) {
   return (
     <form action={formAction} className="grid gap-4 lg:grid-cols-2">
       <input name="prospect_id" type="hidden" value={prospectId} />
+
+      <h3 className="text-sm font-semibold lg:col-span-2">Nouveau contact</h3>
 
       {state.error ? (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 lg:col-span-2">
