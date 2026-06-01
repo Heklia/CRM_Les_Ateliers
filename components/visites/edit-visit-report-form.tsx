@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Save } from "lucide-react";
 import { updateVisitReport } from "@/app/visites/[id]/edit/actions";
@@ -53,6 +54,12 @@ export function EditVisitReportForm({
   visit: VisitValue;
 }) {
   const [state, formAction] = useFormState(updateVisitReport, initialState);
+  const [selectedProspectId, setSelectedProspectId] = useState(visit.prospectId);
+  const [selectedContactId, setSelectedContactId] = useState(visit.contactId ?? "");
+  const prospectContacts = useMemo(
+    () => contacts.filter((contact) => contact.prospect_id === selectedProspectId),
+    [contacts, selectedProspectId]
+  );
 
   return (
     <form
@@ -71,9 +78,13 @@ export function EditVisitReportForm({
         Prospect
         <select
           className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          defaultValue={visit.prospectId}
           name="prospect_id"
+          onChange={(event) => {
+            setSelectedProspectId(event.target.value);
+            setSelectedContactId("");
+          }}
           required
+          value={selectedProspectId}
         >
           {prospects.map((prospect) => (
             <option key={prospect.id} value={prospect.id}>
@@ -88,17 +99,28 @@ export function EditVisitReportForm({
         Personne concernee
         <select
           className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          defaultValue={visit.contactId ?? ""}
           name="contact_id"
+          onChange={(event) => setSelectedContactId(event.target.value)}
+          value={selectedContactId}
         >
           <option value="">Non renseignee</option>
-          {contacts.map((contact) => (
+          {prospectContacts.map((contact) => (
             <option key={contact.id} value={contact.id}>
               {formatContact(contact)}
             </option>
           ))}
+          {selectedProspectId ? <option value="__new__">Creer un nouveau contact</option> : null}
         </select>
       </label>
+
+      {selectedContactId === "__new__" ? (
+        <div className="grid gap-4 rounded-md border border-border bg-background p-4 lg:col-span-2 lg:grid-cols-2">
+          <Field label="Nom du nouveau contact" name="new_contact_name" required />
+          <Field label="Fonction" name="new_contact_job_title" />
+          <Field label="Telephone" name="new_contact_phone" />
+          <Field label="Email" name="new_contact_email" type="email" />
+        </div>
+      ) : null}
 
       <Field
         defaultValue={toDateTimeLocal(visit.visitDate)}

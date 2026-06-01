@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { canAccessCommercialData, getCurrentProfile } from "@/lib/auth/roles";
 import {
   optionalDateTime,
+  optionalEmail,
   optionalNonNegativeNumber,
   optionalText,
   requiredDateTime,
@@ -82,11 +83,20 @@ export async function updateVisitReport(
     return { error: "Visite introuvable ou non autorisee." };
   }
 
+  const contact = await resolveActionContact(supabase, formData, {
+    commercialId: prospect.commercial_id,
+    prospectId: prospectId.data
+  });
+
+  if (!contact.ok) {
+    return { error: contact.error };
+  }
+
   const { error: updateError } = await supabase
     .from("visites")
     .update({
       prospect_id: prospectId.data,
-      contact_id: optionalText(formData, "contact_id"),
+      contact_id: contact.contactId,
       commercial_id: prospect.commercial_id,
       visite_date: visitDate.data,
       type: contactType.data,
@@ -166,4 +176,72 @@ function toFollowUpType(type: (typeof contactTypes)[number]) {
   if (type === "visite_terrain") return "visite";
   if (type === "salon") return "autre";
   return type;
+}
+
+async function resolveActionContact(
+  supabase: any,
+  formData: FormData,
+  context: { commercialId: string; prospectId: string }
+) {
+  const rawContactId = optionalText(formData, "contact_id");
+
+  if (!rawContactId) {
+    return { ok: true as const, contactId: null };
+  }
+
+  if (rawContactId !== "__new__") {
+    const { data: contact, error } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("id", rawContactId)
+      .eq("prospect_id", context.prospectId)
+      .single();
+
+    if (error || !contact) {
+      return { ok: false as const, error: "La personne concernee n'appartient pas au prospect selectionne." };
+    }
+
+    return { ok: true as const, contactId: contact.id };
+  }
+
+  const contactName = requiredText(formData, "new_contact_name", "Nom du nouveau contact");
+  const contactEmail = optionalEmail(formData, "new_contact_email", "Email du nouveau contact");
+
+  if (!contactName.ok) return { ok: false as const, error: contactName.error };
+  if (!contactEmail.ok) return { ok: false as const, error: contactEmail.error };
+
+  const { firstName, lastName } = splitContactName(contactName.data);
+  const { data: createdContact, error } = await supabase
+    .from("contacts")
+    .insert({
+      prospect_id: context.prospectId,
+      commercial_id: context.commercialId,
+      first_name: firstName,
+      last_name: lastName,
+      job_title: optionalText(formData, "new_contact_job_title"),
+      phone: optionalText(formData, "new_contact_phone"),
+      email: contactEmail.data,
+      is_primary: false
+    })
+    .select("id")
+    .single();
+
+  if (error || !createdContact) {
+    return { ok: false as const, error: "Impossible de creer le nouveau contact." };
+  }
+
+  return { ok: true as const, contactId: createdContact.id };
+}
+
+function splitContactName(value: string) {
+  const parts = value.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: null };
+  }
+
+  return {
+    firstName: parts.slice(0, -1).join(" "),
+    lastName: parts.at(-1) ?? null
+  };
 }
