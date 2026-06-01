@@ -26,6 +26,7 @@ import type {
   ReportingProspect,
   ReportingVisit
 } from "@/lib/reporting-data";
+import type { CurrentProfile } from "@/lib/auth/roles";
 import type { OpportunityStage, SegmentCode } from "@/lib/types";
 
 const periodOptions = [
@@ -38,6 +39,7 @@ const periodOptions = [
 type DashboardScreenProps = {
   followUps: ReportingFollowUp[];
   opportunities: ReportingOpportunity[];
+  profile: CurrentProfile;
   prospects: ReportingProspect[];
   visits: ReportingVisit[];
 };
@@ -45,11 +47,13 @@ type DashboardScreenProps = {
 export function DashboardScreen({
   followUps,
   opportunities,
+  profile,
   prospects,
   visits
 }: DashboardScreenProps) {
   const [commercial, setCommercial] = useState("");
   const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("30");
+  const canFilterCommercials = profile.role === "admin" || profile.role === "manager";
 
   const commercials = useMemo(() => {
     return Array.from(
@@ -62,7 +66,8 @@ export function DashboardScreen({
 
   const filtered = useMemo(() => {
     const inPeriod = createPeriodFilter(period);
-    const byCommercial = (value: string) => commercial === "" || value === commercial;
+    const byCommercial = (value: string) =>
+      !canFilterCommercials || commercial === "" || value === commercial;
 
     return {
       prospects: prospects.filter(
@@ -76,7 +81,7 @@ export function DashboardScreen({
         (opportunity) => byCommercial(opportunity.commercial) && inPeriod(opportunity.createdAt)
       )
     };
-  }, [commercial, followUps, opportunities, period, prospects, visits]);
+  }, [canFilterCommercials, commercial, followUps, opportunities, period, prospects, visits]);
 
   const potentialTotal = filtered.prospects.reduce(
     (sum, prospect) => sum + prospect.estimatedPotential,
@@ -107,26 +112,37 @@ export function DashboardScreen({
   return (
     <main>
       <PageHeader
-        title="Dashboard commercial"
-        description="Vue de pilotage pour suivre l'activite terrain, le potentiel commercial et la performance du pipeline."
+        title={`Dashboard de ${profile.full_name}`}
+        description={
+          canFilterCommercials
+            ? "Vue equipe pour suivre l'activite terrain, le potentiel commercial et la performance du pipeline."
+            : "Vue personnelle pour suivre vos prospects, vos visites, vos relances et votre pipeline."
+        }
       />
 
       <section className="mb-6 grid gap-3 rounded-lg border border-border bg-surface p-4 shadow-soft md:grid-cols-2">
-        <label className="block text-sm font-medium">
-          Commercial
-          <select
-            className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-            onChange={(event) => setCommercial(event.target.value)}
-            value={commercial}
-          >
-            <option value="">Tous les commerciaux</option>
-            {commercials.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {canFilterCommercials ? (
+          <label className="block text-sm font-medium">
+            Commercial
+            <select
+              className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+              onChange={(event) => setCommercial(event.target.value)}
+              value={commercial}
+            >
+              <option value="">Tous les commerciaux</option>
+              {commercials.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <div className="rounded-md border border-border bg-background px-3 py-2 text-sm">
+            <p className="font-medium">Vue personnelle</p>
+            <p className="mt-1 text-muted">{profile.full_name}</p>
+          </div>
+        )}
 
         <label className="block text-sm font-medium">
           Periode

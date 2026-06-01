@@ -16,5 +16,5 @@ export default async function DashboardPage() {
 
   const data = await getReportingData(supabase);
 
-  return <DashboardScreen {...data} />;
+  return <DashboardScreen profile={profile} {...data} />;
 }
