@@ -84,7 +84,8 @@ export async function updatePipelineStage({
   const { error } = await opportunitiesTable.update({
       stage,
       won_at: stage === "gagne" ? now : null,
-      lost_at: stage === "perdu" ? now : null
+      lost_at: stage === "perdu" ? now : null,
+      loss_reason: stage === "perdu" ? "Perdu depuis le pipeline" : null
     })
     .eq("id", id);
 

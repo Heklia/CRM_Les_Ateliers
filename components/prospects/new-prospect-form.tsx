@@ -32,20 +32,25 @@ export function NewProspectForm() {
         required
       />
 
-      <label className="block text-sm font-medium">
-        Segment marche
-        <select
-          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          name="segment_code"
-          required
-        >
-          {Object.entries(segmentLabels).map(([code, label]) => (
-            <option key={code} value={code}>
+      <div className="lg:col-span-2">
+        <span className="block text-sm font-medium">Segments marche</span>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {Object.entries(segmentLabels).map(([code, label], index) => (
+            <label
+              className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold"
+              key={code}
+            >
+              <input
+                defaultChecked={index === 0}
+                name="segment_codes"
+                type="checkbox"
+                value={code}
+              />
               {label}
-            </option>
+            </label>
           ))}
-        </select>
-      </label>
+        </div>
+      </div>
 
       <Field
         label="Sous-segment"

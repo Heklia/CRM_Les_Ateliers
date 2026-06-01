@@ -24,6 +24,10 @@ type SegmentRow = {
   code: string;
 };
 
+type ProspectSegmentRow = {
+  segment_id: string;
+};
+
 type ContactRow = {
   id: string;
   first_name: string | null;
@@ -45,13 +49,14 @@ export default async function EditProspectPage({
     redirect("/login");
   }
 
-  const [{ data: prospect }, { data: segments }, { data: contacts }] = await Promise.all([
+  const [{ data: prospect }, { data: segments }, { data: prospectSegments }, { data: contacts }] = await Promise.all([
     supabase
       .from("prospects")
       .select("id, segment_id, company_name, sub_segment, address_line1, city, postal_code, website, notes")
       .eq("id", params.id)
       .single(),
     supabase.from("segments").select("id, code"),
+    supabase.from("prospect_segments").select("segment_id").eq("prospect_id", params.id),
     supabase
       .from("contacts")
       .select("id, first_name, last_name, job_title, phone, email, is_primary")
@@ -66,8 +71,12 @@ export default async function EditProspectPage({
 
   const prospectRow = prospect as ProspectRow;
   const segmentRows = (segments ?? []) as SegmentRow[];
+  const prospectSegmentRows = (prospectSegments ?? []) as ProspectSegmentRow[];
   const contact = ((contacts ?? []) as ContactRow[])[0];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
+  const selectedSegmentCodes = prospectSegmentRows
+    .map((item) => segmentRows.find((segmentItem) => segmentItem.id === item.segment_id)?.code)
+    .filter(Boolean) as SegmentCode[];
 
   return (
     <main>
@@ -96,7 +105,10 @@ export default async function EditProspectPage({
         prospect={{
           id: prospectRow.id,
           companyName: prospectRow.company_name,
-          segmentCode: (segment?.code ?? "agencements_decoratifs") as SegmentCode,
+          segmentCode: (segment?.code ?? "autres_agencements") as SegmentCode,
+          segmentCodes: selectedSegmentCodes.length
+            ? selectedSegmentCodes
+            : [((segment?.code ?? "autres_agencements") as SegmentCode)],
           subSegment: prospectRow.sub_segment,
           address: prospectRow.address_line1,
           city: prospectRow.city,

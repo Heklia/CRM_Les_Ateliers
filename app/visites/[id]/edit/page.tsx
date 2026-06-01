@@ -47,6 +47,10 @@ type OpportunityRow = {
   prospect_id: string;
   title: string;
   stage: string;
+  description: string | null;
+  estimated_value: number | null;
+  expected_close_date: string | null;
+  probability: number;
 };
 
 export default async function EditVisitPage({
@@ -84,7 +88,7 @@ export default async function EditVisitPage({
     scopeByCommercial(
       supabase
         .from("opportunites")
-        .select("id, prospect_id, title, stage, commercial_id")
+        .select("id, prospect_id, title, stage, description, estimated_value, expected_close_date, probability, commercial_id")
         .order("updated_at", { ascending: false }),
       profile
     )

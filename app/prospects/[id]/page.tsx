@@ -45,9 +45,11 @@ type OpportunityRow = {
   id: string;
   prospect_id: string;
   title: string;
+  description: string | null;
   stage: string;
   estimated_value: number | null;
   probability: number;
+  expected_close_date: string | null;
   updated_at: string;
 };
 
@@ -89,7 +91,7 @@ export default async function ProspectDetailPage({
         .order("visite_date", { ascending: false }),
       supabase
         .from("opportunites")
-        .select("id, prospect_id, title, stage, estimated_value, probability, updated_at")
+        .select("id, prospect_id, title, description, stage, estimated_value, probability, expected_close_date, updated_at")
         .eq("prospect_id", params.id)
         .order("updated_at", { ascending: false })
     ]);
@@ -104,7 +106,7 @@ export default async function ProspectDetailPage({
   const visitRows = (visits ?? []) as VisitRow[];
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
-  const segmentCode = (segment?.code ?? "agencements_decoratifs") as SegmentCode;
+  const segmentCode = (segment?.code ?? "autres_agencements") as SegmentCode;
   const contactItems = contactRows.map((contact) => ({
     id: contact.id,
     name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Contact non renseigne",
@@ -116,9 +118,11 @@ export default async function ProspectDetailPage({
     id: opportunity.id,
     prospectId: opportunity.prospect_id,
     title: opportunity.title,
+    description: opportunity.description,
     stage: toOpportunityStage(opportunity.stage),
     estimatedValue: opportunity.estimated_value,
     probability: opportunity.probability,
+    expectedCloseDate: opportunity.expected_close_date,
     updatedAt: opportunity.updated_at
   }));
 

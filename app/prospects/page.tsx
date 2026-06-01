@@ -86,7 +86,7 @@ export default async function ProspectsPage() {
     contact: contactByProspect.get(prospect.id) ?? "Contact non renseigne",
     commercial: userById.get(prospect.commercial_id) ?? "Commercial",
     city: prospect.city ?? "",
-    segment: (segmentById.get(prospect.segment_id) ?? "agencements_decoratifs") as SegmentCode,
+    segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
     pipelineStage: prospect.pipeline_stage as OpportunityStage,
     estimatedPotential: prospect.estimated_potential ?? 0,

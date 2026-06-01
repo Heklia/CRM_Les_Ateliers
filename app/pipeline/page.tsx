@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { scopeByCommercial } from "@/lib/supabase/role-filters";
-import { calculatePriorityScore } from "@/lib/priority-score";
 import type { OpportunityStage } from "@/lib/types";
 
 type PipelineProspectRow = {
@@ -27,6 +26,8 @@ type PipelineOpportunityRow = {
   title: string;
   stage: string;
   estimated_value: number | null;
+  probability: number;
+  expected_close_date: string | null;
 };
 
 export default async function PipelinePage() {
@@ -43,7 +44,7 @@ export default async function PipelinePage() {
     .order("updated_at", { ascending: false });
   const opportunitiesQuery = supabase
     .from("opportunites")
-    .select("id, prospect_id, title, stage, estimated_value")
+    .select("id, prospect_id, title, stage, estimated_value, probability, expected_close_date")
     .order("updated_at", { ascending: false });
 
   const [{ data: prospects }, { data: opportunities }] = await Promise.all([
@@ -57,41 +58,23 @@ export default async function PipelinePage() {
     prospectRows.map((prospect) => [prospect.id, prospect])
   );
 
-  const cards: PipelineCard[] = [
-    ...prospectRows.map((prospect) => ({
-      id: prospect.id,
-      type: "prospect" as const,
-      title: prospect.company_name,
-      subtitle: "Prospect",
-      city: prospect.city,
-      stage: prospect.pipeline_stage as OpportunityStage,
-      estimatedPotential: prospect.estimated_potential,
-      priorityScore: prospect.priority_score ?? calculatePriorityScore({
-        interestLevel: prospect.interest_level,
-        estimatedBudget: prospect.estimated_potential,
-        projectTimeline: prospect.project_timeline,
-        capacityFit: prospect.capacity_fit,
-        recurrencePotential: prospect.recurrence_potential,
-        needMaturity: prospect.need_maturity
-      })
-    })),
-    ...opportunityRows.map((opportunity) => ({
-      id: opportunity.id,
-      type: "opportunite" as const,
-      title: opportunity.title,
-      subtitle: prospectById.get(opportunity.prospect_id)?.company_name ?? "Opportunite",
-      city: prospectById.get(opportunity.prospect_id)?.city ?? null,
-      stage: opportunity.stage as OpportunityStage,
-      estimatedPotential: opportunity.estimated_value,
-      priorityScore: null
-    }))
-  ];
+  const cards: PipelineCard[] = opportunityRows.map((opportunity) => ({
+    id: opportunity.id,
+    type: "opportunite" as const,
+    title: opportunity.title,
+    prospectName: prospectById.get(opportunity.prospect_id)?.company_name ?? "Prospect",
+    city: prospectById.get(opportunity.prospect_id)?.city ?? null,
+    stage: opportunity.stage as OpportunityStage,
+    estimatedPotential: opportunity.estimated_value,
+    probability: opportunity.probability,
+    expectedCloseDate: opportunity.expected_close_date
+  }));
 
   return (
     <main>
       <PageHeader
         title="Pipeline"
-        description="Vue Kanban pour suivre les prospects et opportunites, du premier signal jusqu'a la decision."
+        description="Vue Kanban dediee aux opportunites, avec potentiel mensuel et export."
       />
 
       <PipelineKanban initialCards={cards} />

@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
-import { ArrowRight, Save } from "lucide-react";
-import { updateOpportunityStage } from "@/app/prospects/[id]/opportunities/actions";
+import { ArrowRight, Save, Trash2 } from "lucide-react";
+import {
+  deleteOpportunity,
+  updateOpportunityDetails,
+  updateOpportunityStage
+} from "@/app/prospects/[id]/opportunities/actions";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { opportunityStageLabels, opportunityStages } from "@/lib/constants";
@@ -13,9 +17,11 @@ type OpportunityItem = {
   id: string;
   prospectId: string;
   title: string;
+  description: string | null;
   stage: OpportunityStage;
   estimatedValue: number | null;
   probability: number;
+  expectedCloseDate: string | null;
   updatedAt: string;
 };
 
@@ -29,6 +35,7 @@ export function ProspectOpportunitiesPanel({
   prospectId: string;
 }) {
   const [state, formAction] = useFormState(updateOpportunityStage, initialState);
+  const [detailsState, detailsAction] = useFormState(updateOpportunityDetails, initialState);
 
   return (
     <div className="rounded-lg border border-border bg-surface p-5 shadow-soft lg:col-span-2">
@@ -51,6 +58,16 @@ export function ProspectOpportunitiesPanel({
           {state.success}
         </p>
       ) : null}
+      {detailsState.error ? (
+        <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {detailsState.error}
+        </p>
+      ) : null}
+      {detailsState.success ? (
+        <p className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {detailsState.success}
+        </p>
+      ) : null}
 
       <div className="mt-4 grid gap-3">
         {opportunities.length ? (
@@ -62,18 +79,86 @@ export function ProspectOpportunitiesPanel({
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
                     <StatusPill>{opportunityStageLabels[opportunity.stage]}</StatusPill>
                     <span>{formatCurrency(opportunity.estimatedValue)}</span>
-                    <span>{opportunity.probability}%</span>
+                    <span>{opportunity.probability}% interet</span>
+                    <span>{opportunity.expectedCloseDate ? formatDate(opportunity.expectedCloseDate) : "Date projet non renseignee"}</span>
                     <span>Modifiee le {formatDate(opportunity.updatedAt)}</span>
                   </div>
                 </div>
-                <Link
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border bg-white px-4 text-sm font-semibold text-foreground transition hover:bg-background"
-                  href={`/visites/new?prospect_id=${prospectId}&opportunite_id=${opportunity.id}`}
-                >
-                  Reprendre en action
-                  <ArrowRight size={16} />
-                </Link>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Link
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border bg-white px-4 text-sm font-semibold text-foreground transition hover:bg-background"
+                    href={`/visites/new?prospect_id=${prospectId}&opportunite_id=${opportunity.id}`}
+                  >
+                    Reprendre en action
+                    <ArrowRight size={16} />
+                  </Link>
+                  <form action={deleteOpportunity}>
+                    <input name="prospect_id" type="hidden" value={prospectId} />
+                    <input name="opportunity_id" type="hidden" value={opportunity.id} />
+                    <Button className="w-full" type="submit" variant="secondary">
+                      <Trash2 size={16} />
+                      Supprimer
+                    </Button>
+                  </form>
+                </div>
               </div>
+
+              <form action={detailsAction} className="mt-4 grid gap-3 lg:grid-cols-4">
+                <input name="prospect_id" type="hidden" value={prospectId} />
+                <input name="opportunity_id" type="hidden" value={opportunity.id} />
+                <label className="block text-sm font-medium lg:col-span-2">
+                  Nom de l'opportunite
+                  <input
+                    className="mt-1 h-11 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    defaultValue={opportunity.title}
+                    name="title"
+                    required
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  kEUR estime
+                  <input
+                    className="mt-1 h-11 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    defaultValue={opportunity.estimatedValue === null ? "" : opportunity.estimatedValue / 1000}
+                    min="0"
+                    name="estimated_value"
+                    step="1"
+                    type="number"
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  % interet
+                  <input
+                    className="mt-1 h-11 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    defaultValue={opportunity.probability}
+                    max="100"
+                    min="0"
+                    name="probability"
+                    step="1"
+                    type="number"
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Date du projet
+                  <input
+                    className="mt-1 h-11 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    defaultValue={opportunity.expectedCloseDate ?? ""}
+                    name="expected_close_date"
+                    type="date"
+                  />
+                </label>
+                <label className="block text-sm font-medium lg:col-span-2">
+                  Detail
+                  <input
+                    className="mt-1 h-11 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    defaultValue={opportunity.description ?? ""}
+                    name="description"
+                  />
+                </label>
+                <div className="flex items-end">
+                  <OpportunitySubmitButton label="Enregistrer" />
+                </div>
+              </form>
 
               <form action={formAction} className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                 <input name="prospect_id" type="hidden" value={prospectId} />
@@ -93,7 +178,7 @@ export function ProspectOpportunitiesPanel({
                   </select>
                 </label>
                 <div className="flex items-end">
-                  <OpportunitySubmitButton />
+                  <OpportunitySubmitButton label="Mettre a jour" />
                 </div>
               </form>
             </article>
@@ -108,13 +193,13 @@ export function ProspectOpportunitiesPanel({
   );
 }
 
-function OpportunitySubmitButton() {
+function OpportunitySubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
 
   return (
     <Button className="w-full sm:w-auto" disabled={pending} type="submit" variant="secondary">
       <Save size={16} />
-      {pending ? "Mise a jour..." : "Mettre a jour"}
+      {pending ? "Mise a jour..." : label}
     </Button>
   );
 }

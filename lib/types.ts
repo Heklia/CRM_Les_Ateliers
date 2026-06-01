@@ -1,7 +1,11 @@
 export type SegmentCode =
-  | "agencements_decoratifs"
-  | "structures_mobilier"
-  | "usinage_3d_prototypage_rotomoulage";
+  | "bardage_decoratif"
+  | "autres_agencements"
+  | "structure_mobilier"
+  | "usinage_3d"
+  | "co_conception"
+  | "nautisme"
+  | "pieces_industrielles";
 
 export type ProspectStatus =
   | "nouveau"

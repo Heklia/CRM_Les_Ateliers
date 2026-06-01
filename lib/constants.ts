@@ -9,9 +9,13 @@ export const navItems: NavItem[] = [
 ];
 
 export const segmentLabels = {
-  agencements_decoratifs: "Agencements decoratifs",
-  structures_mobilier: "Structures et mobilier",
-  usinage_3d_prototypage_rotomoulage: "Usinage 3D et prototypage"
+  bardage_decoratif: "Bardage decoratif",
+  autres_agencements: "Autres agencements",
+  structure_mobilier: "Structure et mobilier",
+  usinage_3d: "Usinage 3D",
+  co_conception: "Co-conception",
+  nautisme: "Nautisme",
+  pieces_industrielles: "Pieces industrielles"
 } as const;
 
 export const statusLabels = {

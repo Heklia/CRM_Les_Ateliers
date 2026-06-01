@@ -27,6 +27,10 @@ type OpportunityOption = {
   prospect_id: string;
   title: string;
   stage: string;
+  description: string | null;
+  estimated_value: number | null;
+  expected_close_date: string | null;
+  probability: number;
 };
 
 const initialState: { error?: string } = {
@@ -56,6 +60,16 @@ export function VisitReportForm({
   const [selectedProspectId, setSelectedProspectId] = useState(initialProspectId);
   const [selectedContactId, setSelectedContactId] = useState("");
   const [selectedOpportunityId, setSelectedOpportunityId] = useState(initialOpportunityId);
+  const initialOpportunity = opportunities.find((item) => item.id === initialOpportunityId);
+  const [need, setNeed] = useState(initialOpportunity?.title ?? "");
+  const [pain, setPain] = useState(initialOpportunity?.description ?? "");
+  const [budget, setBudget] = useState(
+    initialOpportunity?.estimated_value === null || initialOpportunity?.estimated_value === undefined
+      ? ""
+      : String(initialOpportunity.estimated_value / 1000)
+  );
+  const [timeline, setTimeline] = useState(initialOpportunity?.expected_close_date ?? "");
+  const [interest, setInterest] = useState(toInterestValue(initialOpportunity?.probability));
   const prospectContacts = useMemo(
     () => contacts.filter((contact) => contact.prospect_id === selectedProspectId),
     [contacts, selectedProspectId]
@@ -85,6 +99,11 @@ export function VisitReportForm({
             setSelectedProspectId(event.target.value);
             setSelectedContactId("");
             setSelectedOpportunityId("");
+            setNeed("");
+            setPain("");
+            setBudget("");
+            setTimeline("");
+            setInterest("tiede");
           }}
           required
           value={selectedProspectId}
@@ -131,7 +150,17 @@ export function VisitReportForm({
         <select
           className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
           name="opportunite_id"
-          onChange={(event) => setSelectedOpportunityId(event.target.value)}
+          onChange={(event) => {
+            const opportunity = opportunities.find((item) => item.id === event.target.value);
+            setSelectedOpportunityId(event.target.value);
+            if (opportunity) {
+              setNeed(opportunity.title);
+              setPain(opportunity.description ?? "");
+              setBudget(opportunity.estimated_value === null ? "" : String(opportunity.estimated_value / 1000));
+              setTimeline(opportunity.expected_close_date ?? "");
+              setInterest(toInterestValue(opportunity.probability));
+            }
+          }}
           value={selectedOpportunityId}
         >
           <option value="">Aucune opportunite</option>
@@ -166,26 +195,27 @@ export function VisitReportForm({
           <Field
             label="Besoin identifie"
             name="besoins"
+            onChange={(event) => setNeed(event.target.value)}
             placeholder="Besoin exprime ou observe"
             required
+            value={need}
           />
           <Field
             label="k€ estime"
             min="0"
             name="budget_estime"
+            onChange={(event) => setBudget(event.target.value)}
             placeholder="15"
             step="1"
             type="number"
+            value={budget}
           />
           <Field
             label="Douleur principale"
             name="freins"
+            onChange={(event) => setPain(event.target.value)}
             placeholder="Probleme, contrainte, frein actuel"
-          />
-          <Field
-            label="Application envisagee"
-            name="application_envisagee"
-            placeholder="Usage, produit, projet cible"
+            value={pain}
           />
           <Field
             label="Matiere ou procede concerne"
@@ -193,10 +223,39 @@ export function VisitReportForm({
             placeholder="Usinage 3D, rotomoulage, mineral, composite..."
           />
           <Field
-            label="Delai projet"
+            label="Delai du projet"
             name="delai_projet"
-            placeholder="Immediat, 3 mois, T4..."
+            onChange={(event) => setTimeline(event.target.value)}
+            type="date"
+            value={timeline}
           />
+          <div className="lg:col-span-2">
+            <span className="block text-sm font-medium">Niveau d'interet</span>
+            <div className="mt-1 grid gap-2 sm:grid-cols-3">
+              {interestOptions.map((option) => {
+                const Icon = option.icon;
+
+                return (
+                  <label
+                    className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
+                    key={option.value}
+                  >
+                    <input
+                      checked={option.value === interest}
+                      className="sr-only"
+                      name="niveau_interet"
+                      onChange={() => setInterest(option.value)}
+                      required
+                      type="radio"
+                      value={option.value}
+                    />
+                    <Icon size={18} />
+                    {option.label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </details>
 
@@ -213,33 +272,6 @@ export function VisitReportForm({
           <option value="perdu">Perdu</option>
         </select>
       </label>
-
-      <div className="lg:col-span-2">
-        <span className="block text-sm font-medium">Niveau d'interet</span>
-        <div className="mt-1 grid gap-2 sm:grid-cols-3">
-          {interestOptions.map((option) => {
-            const Icon = option.icon;
-
-            return (
-              <label
-                className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
-                key={option.value}
-              >
-                <input
-                  className="sr-only"
-                  defaultChecked={option.value === "tiede"}
-                  name="niveau_interet"
-                  required
-                  type="radio"
-                  value={option.value}
-                />
-                <Icon size={18} />
-                {option.label}
-              </label>
-            );
-          })}
-        </div>
-      </div>
 
       <label className="block text-sm font-medium">
         Prochaine action
@@ -288,4 +320,10 @@ function SubmitButton() {
 function formatContact(contact: ContactOption) {
   const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
   return [name || "Contact", contact.job_title].filter(Boolean).join(" - ");
+}
+
+function toInterestValue(probability?: number | null) {
+  if ((probability ?? 0) >= 70) return "chaud";
+  if ((probability ?? 0) >= 35) return "tiede";
+  return "froid";
 }

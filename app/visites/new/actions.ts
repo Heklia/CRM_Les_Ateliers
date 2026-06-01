@@ -69,7 +69,7 @@ export async function createVisitReport(
 
   const { data: prospect, error: prospectError } = await supabase
     .from("prospects")
-    .select("id, commercial_id")
+    .select("id, commercial_id, segment_id")
     .eq("id", validatedProspectId)
     .single();
 
@@ -90,7 +90,16 @@ export async function createVisitReport(
     return { error: contact.error };
   }
 
-  const opportunity = await resolveActionOpportunity(supabase, formData, validatedProspectId);
+  const opportunity = await resolveActionOpportunity(supabase, formData, {
+    commercialId: prospect.commercial_id,
+    prospectId: validatedProspectId,
+    segmentId: prospect.segment_id,
+    stage: validatedProspectStatus === "perdu" ? "perdu" : "opportunite_detectee",
+    need: validatedNeed,
+    budget: validatedBudget,
+    projectDate: optionalText(formData, "delai_projet"),
+    interest: validatedInterest
+  });
 
   if (!opportunity.ok) {
     return { error: opportunity.error };
@@ -108,7 +117,7 @@ export async function createVisitReport(
     resume: buildSummary(formData),
     besoins: validatedNeed,
     freins: optionalText(formData, "freins"),
-    application_envisagee: optionalText(formData, "application_envisagee"),
+    application_envisagee: null,
     matiere_procede: optionalText(formData, "matiere_procede"),
     budget_estime: validatedBudget,
     delai_projet: optionalText(formData, "delai_projet"),
@@ -165,11 +174,10 @@ export async function createVisitReport(
 }
 
 function buildSummary(formData: FormData) {
-  const application = optionalText(formData, "application_envisagee");
   const matter = optionalText(formData, "matiere_procede");
   const need = String(formData.get("besoins") ?? "").trim();
 
-  return [need, application, matter].filter(Boolean).join(" | ");
+  return [need, matter].filter(Boolean).join(" | ");
 }
 
 function getDefaultFollowUpDate(visitDate: string) {
@@ -199,23 +207,67 @@ function getContactTypeLabel(type: (typeof contactTypes)[number]) {
 async function resolveActionOpportunity(
   supabase: any,
   formData: FormData,
-  prospectId: string
+  context: {
+    budget: number | null;
+    commercialId: string;
+    interest: keyof typeof interestMap;
+    need: string;
+    projectDate: string | null;
+    prospectId: string;
+    segmentId: string;
+    stage: string;
+  }
 ) {
   const opportunityId = optionalText(formData, "opportunite_id");
+  const payload = {
+    title: context.need,
+    description: optionalText(formData, "freins"),
+    estimated_value: context.budget,
+    expected_close_date: context.projectDate,
+    probability: interestMap[context.interest] * 20,
+    stage: context.stage,
+    won_at: null,
+    lost_at: context.stage === "perdu" ? new Date().toISOString() : null,
+    loss_reason: context.stage === "perdu" ? "Perdu apres action" : null
+  };
 
   if (!opportunityId) {
-    return { ok: true as const, opportunityId: null };
+    const { data: opportunity, error } = await supabase
+      .from("opportunites")
+      .insert({
+        prospect_id: context.prospectId,
+        commercial_id: context.commercialId,
+        segment_id: context.segmentId,
+        ...payload
+      })
+      .select("id")
+      .single();
+
+    if (error || !opportunity) {
+      return { ok: false as const, error: "Impossible de creer l'opportunite depuis le detail du projet." };
+    }
+
+    return { ok: true as const, opportunityId: opportunity.id };
   }
 
   const { data: opportunity, error } = await supabase
     .from("opportunites")
     .select("id")
     .eq("id", opportunityId)
-    .eq("prospect_id", prospectId)
+    .eq("prospect_id", context.prospectId)
     .single();
 
   if (error || !opportunity) {
     return { ok: false as const, error: "L'opportunite selectionnee n'appartient pas au prospect." };
+  }
+
+  const { error: updateError } = await supabase
+    .from("opportunites")
+    .update(payload)
+    .eq("id", opportunity.id);
+
+  if (updateError) {
+    return { ok: false as const, error: "Impossible de mettre a jour l'opportunite liee." };
   }
 
   return { ok: true as const, opportunityId: opportunity.id };

@@ -5,19 +5,16 @@ import {
   normalizeOptionalWebsite,
   optionalEmail,
   optionalText,
-  requiredEnum,
   requiredText
 } from "@/lib/forms/validation";
+import { segmentLabels } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
+import type { SegmentCode } from "@/lib/types";
 
 type CreateProspectState = {
   error?: string;
 };
-const segmentCodes = [
-  "agencements_decoratifs",
-  "structures_mobilier",
-  "usinage_3d_prototypage_rotomoulage"
-] as const;
+const segmentCodes = Object.keys(segmentLabels) as SegmentCode[];
 
 export async function createProspect(
   _previousState: CreateProspectState,
@@ -34,18 +31,17 @@ export async function createProspect(
   }
 
   const companyName = requiredText(formData, "company_name", "Nom entreprise");
-  const segmentCode = requiredEnum(formData, "segment_code", "Segment marche", segmentCodes);
+  const selectedSegmentCodes = getSelectedSegmentCodes(formData);
   const contactName = requiredText(formData, "contact_name", "Nom du contact");
   const website = normalizeOptionalWebsite(formData, "website");
   const email = optionalEmail(formData, "email", "Email");
 
   if (!companyName.ok) return { error: companyName.error };
-  if (!segmentCode.ok) return { error: segmentCode.error };
+  if (!selectedSegmentCodes.length) return { error: "Selectionnez au moins un segment marche." };
   if (!contactName.ok) return { error: contactName.error };
   if (!website.ok) return { error: website.error };
   if (!email.ok) return { error: email.error };
 
-  const validatedSegmentCode = segmentCode.data;
   const validatedCompanyName = companyName.data;
   const validatedContactName = contactName.data;
   const validatedWebsite = website.data;
@@ -60,7 +56,7 @@ export async function createProspect(
   const { data: segment, error: segmentError } = await supabase
     .from("segments")
     .select("id")
-    .eq("code", validatedSegmentCode)
+    .eq("code", selectedSegmentCodes[0])
     .single();
 
   if (segmentError || !segment) {
@@ -69,7 +65,7 @@ export async function createProspect(
 
   const { firstName, lastName } = splitContactName(validatedContactName);
 
-  const { error: createError } = await supabase.rpc("create_prospect_with_contact", {
+  const { data: createdProspectId, error: createError } = await supabase.rpc("create_prospect_with_contact", {
     prospect_payload: {
       commercial_id: user.id,
       segment_id: segment.id,
@@ -103,7 +99,28 @@ export async function createProspect(
     return { error: "Impossible de creer le prospect et son contact." };
   }
 
+  const { data: selectedSegments, error: selectedSegmentsError } = await supabase
+    .from("segments")
+    .select("id, code")
+    .in("code", selectedSegmentCodes);
+
+  if (!selectedSegmentsError && createdProspectId) {
+    await supabase.from("prospect_segments").insert(
+      (selectedSegments ?? []).map((item: { id: string }) => ({
+        prospect_id: createdProspectId,
+        segment_id: item.id
+      }))
+    );
+  }
+
   redirect("/prospects");
+}
+
+function getSelectedSegmentCodes(formData: FormData) {
+  return formData
+    .getAll("segment_codes")
+    .map((value) => String(value))
+    .filter((value): value is SegmentCode => segmentCodes.includes(value as SegmentCode));
 }
 
 async function ensureCommercialProfile(user: {

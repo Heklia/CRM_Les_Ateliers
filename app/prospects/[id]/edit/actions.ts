@@ -5,20 +5,17 @@ import {
   normalizeOptionalWebsite,
   optionalEmail,
   optionalText,
-  requiredEnum,
   requiredText
 } from "@/lib/forms/validation";
+import { segmentLabels } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
+import type { SegmentCode } from "@/lib/types";
 
 type UpdateProspectState = {
   error?: string;
 };
 
-const segmentCodes = [
-  "agencements_decoratifs",
-  "structures_mobilier",
-  "usinage_3d_prototypage_rotomoulage"
-] as const;
+const segmentCodes = Object.keys(segmentLabels) as SegmentCode[];
 
 export async function updateProspect(
   _previousState: UpdateProspectState,
@@ -36,14 +33,14 @@ export async function updateProspect(
 
   const prospectId = requiredText(formData, "prospect_id", "Prospect");
   const companyName = requiredText(formData, "company_name", "Nom entreprise");
-  const segmentCode = requiredEnum(formData, "segment_code", "Segment marche", segmentCodes);
+  const selectedSegmentCodes = getSelectedSegmentCodes(formData);
   const contactName = requiredText(formData, "contact_name", "Nom du contact");
   const website = normalizeOptionalWebsite(formData, "website");
   const email = optionalEmail(formData, "email", "Email");
 
   if (!prospectId.ok) return { error: prospectId.error };
   if (!companyName.ok) return { error: companyName.error };
-  if (!segmentCode.ok) return { error: segmentCode.error };
+  if (!selectedSegmentCodes.length) return { error: "Selectionnez au moins un segment marche." };
   if (!contactName.ok) return { error: contactName.error };
   if (!website.ok) return { error: website.error };
   if (!email.ok) return { error: email.error };
@@ -61,7 +58,7 @@ export async function updateProspect(
   const { data: segment, error: segmentError } = await supabase
     .from("segments")
     .select("id")
-    .eq("code", segmentCode.data)
+    .eq("code", selectedSegmentCodes[0])
     .single();
 
   if (segmentError || !segment) {
@@ -84,6 +81,21 @@ export async function updateProspect(
 
   if (updateError) {
     return { error: "Impossible de modifier le prospect." };
+  }
+
+  const { data: selectedSegments, error: selectedSegmentsError } = await supabase
+    .from("segments")
+    .select("id, code")
+    .in("code", selectedSegmentCodes);
+
+  if (!selectedSegmentsError) {
+    await supabase.from("prospect_segments").delete().eq("prospect_id", prospectId.data);
+    await supabase.from("prospect_segments").insert(
+      (selectedSegments ?? []).map((item: { id: string }) => ({
+        prospect_id: prospectId.data,
+        segment_id: item.id
+      }))
+    );
   }
 
   const { firstName, lastName } = splitContactName(contactName.data);
@@ -112,6 +124,13 @@ export async function updateProspect(
   }
 
   redirect(`/prospects/${prospectId.data}`);
+}
+
+function getSelectedSegmentCodes(formData: FormData) {
+  return formData
+    .getAll("segment_codes")
+    .map((value) => String(value))
+    .filter((value): value is SegmentCode => segmentCodes.includes(value as SegmentCode));
 }
 
 function splitContactName(value: string) {

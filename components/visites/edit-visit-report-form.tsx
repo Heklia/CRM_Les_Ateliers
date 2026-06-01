@@ -27,6 +27,10 @@ type OpportunityOption = {
   prospect_id: string;
   title: string;
   stage: string;
+  description: string | null;
+  estimated_value: number | null;
+  expected_close_date: string | null;
+  probability: number;
 };
 
 type VisitValue = {
@@ -210,20 +214,42 @@ export function EditVisitReportForm({
             name="freins"
           />
           <Field
-            defaultValue={visit.application ?? ""}
-            label="Application envisagee"
-            name="application_envisagee"
-          />
-          <Field
             defaultValue={visit.material ?? ""}
             label="Matiere ou procede concerne"
             name="matiere_procede"
           />
           <Field
             defaultValue={visit.timeline ?? ""}
-            label="Delai projet"
+            label="Delai du projet"
             name="delai_projet"
+            type="date"
           />
+          <div className="lg:col-span-2">
+            <span className="block text-sm font-medium">Niveau d'interet</span>
+            <div className="mt-1 grid gap-2 sm:grid-cols-3">
+              {interestOptions.map((option) => {
+                const Icon = option.icon;
+
+                return (
+                  <label
+                    className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
+                    key={option.value}
+                  >
+                    <input
+                      className="sr-only"
+                      defaultChecked={option.value === visit.interest}
+                      name="niveau_interet"
+                      required
+                      type="radio"
+                      value={option.value}
+                    />
+                    <Icon size={18} />
+                    {option.label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </details>
 
@@ -241,33 +267,6 @@ export function EditVisitReportForm({
           <option value="perdu">Perdu</option>
         </select>
       </label>
-
-      <div className="lg:col-span-2">
-        <span className="block text-sm font-medium">Niveau d'interet</span>
-        <div className="mt-1 grid gap-2 sm:grid-cols-3">
-          {interestOptions.map((option) => {
-            const Icon = option.icon;
-
-            return (
-              <label
-                className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
-                key={option.value}
-              >
-                <input
-                  className="sr-only"
-                  defaultChecked={option.value === visit.interest}
-                  name="niveau_interet"
-                  required
-                  type="radio"
-                  value={option.value}
-                />
-                <Icon size={18} />
-                {option.label}
-              </label>
-            );
-          })}
-        </div>
-      </div>
 
       <label className="block text-sm font-medium">
         Prochaine action

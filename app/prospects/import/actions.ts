@@ -17,9 +17,13 @@ type ImportProspectsState = {
 type CsvRow = Record<string, string>;
 
 const segmentCodes = [
-  "agencements_decoratifs",
-  "structures_mobilier",
-  "usinage_3d_prototypage_rotomoulage"
+  "bardage_decoratif",
+  "autres_agencements",
+  "structure_mobilier",
+  "usinage_3d",
+  "co_conception",
+  "nautisme",
+  "pieces_industrielles"
 ] as const;
 
 const projectTimelines = ["immediat", "moins_3_mois", "moins_6_mois", "plus_6_mois", "inconnu"] as const;
@@ -335,16 +339,32 @@ function rowToFormData(row: CsvRow) {
 function normalizeSegmentCode(value: string) {
   const normalized = normalizeValue(value);
 
-  if (normalized === "1" || normalized.includes("agencement") || normalized.includes("decoratif")) {
-    return "agencements_decoratifs";
+  if (normalized.includes("bardage") || normalized.includes("decoratif")) {
+    return "bardage_decoratif";
   }
 
-  if (normalized === "2" || normalized.includes("structure") || normalized.includes("mobilier")) {
-    return "structures_mobilier";
+  if (normalized.includes("agencement")) {
+    return "autres_agencements";
   }
 
-  if (normalized === "3" || normalized.includes("usinage") || normalized.includes("prototypage") || normalized.includes("rotomoulage")) {
-    return "usinage_3d_prototypage_rotomoulage";
+  if (normalized.includes("structure") || normalized.includes("mobilier")) {
+    return "structure_mobilier";
+  }
+
+  if (normalized.includes("usinage")) {
+    return "usinage_3d";
+  }
+
+  if (normalized.includes("conception")) {
+    return "co_conception";
+  }
+
+  if (normalized.includes("nautisme")) {
+    return "nautisme";
+  }
+
+  if (normalized.includes("industri")) {
+    return "pieces_industrielles";
   }
 
   if (segmentCodes.includes(normalized as (typeof segmentCodes)[number])) {

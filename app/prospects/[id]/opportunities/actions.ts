@@ -4,18 +4,23 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { canAccessCommercialData, getCurrentProfile } from "@/lib/auth/roles";
 import { opportunityStages } from "@/lib/constants";
-import { requiredEnum, requiredText } from "@/lib/forms/validation";
+import {
+  optionalNonNegativeNumber,
+  optionalText,
+  requiredEnum,
+  requiredText
+} from "@/lib/forms/validation";
 import { createClient } from "@/lib/supabase/server";
 
-type UpdateOpportunityStageState = {
+type OpportunityActionState = {
   error?: string;
   success?: string;
 };
 
 export async function updateOpportunityStage(
-  _previousState: UpdateOpportunityStageState,
+  _previousState: OpportunityActionState,
   formData: FormData
-): Promise<UpdateOpportunityStageState> {
+): Promise<OpportunityActionState> {
   const supabase = createClient() as any;
   const profile = await getCurrentProfile(supabase);
 
@@ -31,37 +36,107 @@ export async function updateOpportunityStage(
   if (!opportunityId.ok) return { error: opportunityId.error };
   if (!stage.ok) return { error: stage.error };
 
-  const { data: opportunity, error: readError } = await supabase
-    .from("opportunites")
-    .select("id, prospect_id, commercial_id, loss_reason")
-    .eq("id", opportunityId.data)
-    .eq("prospect_id", prospectId.data)
-    .single();
+  const access = await getOpportunityAccess(supabase, profile, opportunityId.data, prospectId.data);
+  if (!access.ok) return { error: access.error };
 
-  if (
-    readError ||
-    !opportunity ||
-    !canAccessCommercialData(profile, opportunity.commercial_id)
-  ) {
-    return { error: "Opportunite introuvable ou non autorisee." };
-  }
-
-  const stageUpdate = buildStageUpdate(stage.data, opportunity.loss_reason);
-  const { error: updateError } = await supabase
+  const { error } = await supabase
     .from("opportunites")
-    .update(stageUpdate)
+    .update(buildStageUpdate(stage.data, access.lossReason))
     .eq("id", opportunityId.data);
 
-  if (updateError) {
+  if (error) {
     return { error: "Impossible de mettre a jour le statut de l'opportunite." };
   }
 
-  revalidatePath(`/prospects/${prospectId.data}`);
-  revalidatePath("/pipeline");
-  revalidatePath("/dashboard");
-  revalidatePath("/exports");
-
+  revalidateProspectViews(prospectId.data);
   return { success: "Statut de l'opportunite mis a jour." };
+}
+
+export async function updateOpportunityDetails(
+  _previousState: OpportunityActionState,
+  formData: FormData
+): Promise<OpportunityActionState> {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
+  const prospectId = requiredText(formData, "prospect_id", "Prospect");
+  const opportunityId = requiredText(formData, "opportunity_id", "Opportunite");
+  const title = requiredText(formData, "title", "Nom de l'opportunite");
+  const amount = optionalNonNegativeNumber(formData, "estimated_value", "Montant estime");
+
+  if (!prospectId.ok) return { error: prospectId.error };
+  if (!opportunityId.ok) return { error: opportunityId.error };
+  if (!title.ok) return { error: title.error };
+  if (!amount.ok) return { error: amount.error };
+
+  const access = await getOpportunityAccess(supabase, profile, opportunityId.data, prospectId.data);
+  if (!access.ok) return { error: access.error };
+
+  const { error } = await supabase
+    .from("opportunites")
+    .update({
+      title: title.data,
+      description: optionalText(formData, "description"),
+      estimated_value: amount.data === null ? null : amount.data * 1000,
+      probability: getProbability(formData),
+      expected_close_date: optionalText(formData, "expected_close_date")
+    })
+    .eq("id", opportunityId.data);
+
+  if (error) {
+    return { error: "Impossible de mettre a jour l'opportunite." };
+  }
+
+  revalidateProspectViews(prospectId.data);
+  return { success: "Opportunite mise a jour." };
+}
+
+export async function deleteOpportunity(formData: FormData) {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
+  const prospectId = requiredText(formData, "prospect_id", "Prospect");
+  const opportunityId = requiredText(formData, "opportunity_id", "Opportunite");
+
+  if (!prospectId.ok || !opportunityId.ok) {
+    return;
+  }
+
+  const access = await getOpportunityAccess(supabase, profile, opportunityId.data, prospectId.data);
+  if (!access.ok) {
+    return;
+  }
+
+  await supabase.from("opportunites").delete().eq("id", opportunityId.data);
+  revalidateProspectViews(prospectId.data);
+}
+
+async function getOpportunityAccess(
+  supabase: any,
+  profile: Awaited<ReturnType<typeof getCurrentProfile>>,
+  opportunityId: string,
+  prospectId: string
+) {
+  const { data: opportunity, error } = await supabase
+    .from("opportunites")
+    .select("id, prospect_id, commercial_id, loss_reason")
+    .eq("id", opportunityId)
+    .eq("prospect_id", prospectId)
+    .single();
+
+  if (error || !opportunity || !profile || !canAccessCommercialData(profile, opportunity.commercial_id)) {
+    return { ok: false as const, error: "Opportunite introuvable ou non autorisee." };
+  }
+
+  return { ok: true as const, lossReason: opportunity.loss_reason as string | null };
 }
 
 function buildStageUpdate(stage: (typeof opportunityStages)[number], currentLossReason: string | null) {
@@ -89,4 +164,17 @@ function buildStageUpdate(stage: (typeof opportunityStages)[number], currentLoss
     lost_at: null,
     loss_reason: null
   };
+}
+
+function getProbability(formData: FormData) {
+  const value = Number(String(formData.get("probability") ?? "0"));
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function revalidateProspectViews(prospectId: string) {
+  revalidatePath(`/prospects/${prospectId}`);
+  revalidatePath("/pipeline");
+  revalidatePath("/dashboard");
+  revalidatePath("/exports");
 }

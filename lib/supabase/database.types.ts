@@ -170,6 +170,19 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["segments"]["Row"]>;
       };
+      prospect_segments: {
+        Row: {
+          prospect_id: string;
+          segment_id: string;
+          created_at: string;
+        };
+        Insert: {
+          prospect_id: string;
+          segment_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["prospect_segments"]["Insert"]>;
+      };
       actions_suivantes: {
         Row: {
           id: string;

@@ -27,7 +27,7 @@ export default async function NewVisitPage({
     .order("is_primary", { ascending: false });
   const opportunitiesQuery = supabase
     .from("opportunites")
-    .select("id, prospect_id, title, stage, commercial_id")
+    .select("id, prospect_id, title, stage, description, estimated_value, expected_close_date, probability, commercial_id")
     .order("updated_at", { ascending: false });
   const [{ data: prospects }, { data: contacts }, { data: opportunities }] = await Promise.all([
     scopeByCommercial(prospectsQuery, profile),
