@@ -12,58 +12,13 @@ import {
 } from "@/lib/constants";
 import { downloadCsv } from "@/lib/csv";
 import { calculatePriorityScore } from "@/lib/priority-score";
-import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
-
-type ExportProspect = {
-  company: string;
-  contact: string;
-  commercial: string;
-  city: string;
-  segment: SegmentCode;
-  status: ProspectStatus;
-  pipelineStage: OpportunityStage;
-  estimatedPotential: number;
-  createdAt: string;
-  lastVisit: string | null;
-  interest: number;
-  projectTimeline: string;
-  capacityFit: number | null;
-  recurrencePotential: number | null;
-  needMaturity: number | null;
-  nextAction: string;
-};
-
-type ExportVisit = {
-  company: string;
-  commercial: string;
-  date: string;
-  type: string;
-  summary: string;
-  interest: number;
-};
-
-type ExportOpportunity = {
-  title: string;
-  company: string;
-  commercial: string;
-  segment: SegmentCode;
-  stage: OpportunityStage;
-  value: number;
-  probability: number;
-  createdAt: string;
-};
-
-type ExportFollowUp = {
-  company: string;
-  commercial: string;
-  dueAt: string;
-  status: string;
-};
-
-const prospects: ExportProspect[] = [];
-const visits: ExportVisit[] = [];
-const opportunities: ExportOpportunity[] = [];
-const followUps: ExportFollowUp[] = [];
+import type {
+  ReportingFollowUp,
+  ReportingOpportunity,
+  ReportingProspect,
+  ReportingVisit
+} from "@/lib/reporting-data";
+import type { SegmentCode } from "@/lib/types";
 
 const periodOptions = [
   { label: "30 derniers jours", value: "30" },
@@ -72,7 +27,19 @@ const periodOptions = [
   { label: "Toutes les periodes", value: "all" }
 ] as const;
 
-export function ExportsScreen() {
+type ExportsScreenProps = {
+  followUps: ReportingFollowUp[];
+  opportunities: ReportingOpportunity[];
+  prospects: ReportingProspect[];
+  visits: ReportingVisit[];
+};
+
+export function ExportsScreen({
+  followUps,
+  opportunities,
+  prospects,
+  visits
+}: ExportsScreenProps) {
   const [commercial, setCommercial] = useState("");
   const [segment, setSegment] = useState("");
   const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("30");
@@ -85,7 +52,7 @@ export function ExportsScreen() {
         ...visits.map((visit) => visit.commercial)
       ])
     ).sort();
-  }, []);
+  }, [opportunities, prospects, visits]);
 
   const filtered = useMemo(() => {
     const inPeriod = createPeriodFilter(period);
@@ -103,7 +70,7 @@ export function ExportsScreen() {
           inPeriod(prospect.createdAt)
       ),
       visits: visits.filter((visit) => {
-        const visitSegment = prospectSegmentByCompany.get(visit.company);
+        const visitSegment = visit.segment ?? prospectSegmentByCompany.get(visit.company);
         return (
           byCommercial(visit.commercial) &&
           (!visitSegment || bySegment(visitSegment)) &&
@@ -117,7 +84,7 @@ export function ExportsScreen() {
           inPeriod(opportunity.createdAt)
       ),
       followUps: followUps.filter((followUp) => {
-        const followUpSegment = prospectSegmentByCompany.get(followUp.company);
+        const followUpSegment = followUp.segment ?? prospectSegmentByCompany.get(followUp.company);
         return (
           byCommercial(followUp.commercial) &&
           (!followUpSegment || bySegment(followUpSegment)) &&
@@ -126,7 +93,7 @@ export function ExportsScreen() {
         );
       })
     };
-  }, [commercial, period, segment]);
+  }, [commercial, followUps, opportunities, period, prospects, segment, visits]);
 
   const exportCards = [
     {
@@ -240,7 +207,7 @@ export function ExportsScreen() {
   );
 }
 
-function exportProspects(items: ExportProspect[]) {
+function exportProspects(items: ReportingProspect[]) {
   downloadCsv(
     "prospects.csv",
     items.map((prospect) => ({
@@ -260,7 +227,7 @@ function exportProspects(items: ExportProspect[]) {
   );
 }
 
-function exportVisits(items: ExportVisit[]) {
+function exportVisits(items: ReportingVisit[]) {
   downloadCsv(
     "visites-realisees.csv",
     items.map((visit) => ({
@@ -274,7 +241,7 @@ function exportVisits(items: ExportVisit[]) {
   );
 }
 
-function exportOpportunities(items: ExportOpportunity[]) {
+function exportOpportunities(items: ReportingOpportunity[]) {
   downloadCsv(
     "opportunites.csv",
     items.map((opportunity) => ({
@@ -290,7 +257,7 @@ function exportOpportunities(items: ExportOpportunity[]) {
   );
 }
 
-function exportFollowUps(items: ExportFollowUp[]) {
+function exportFollowUps(items: ReportingFollowUp[]) {
   downloadCsv(
     "relances-a-venir.csv",
     items.map((followUp) => ({
@@ -303,8 +270,8 @@ function exportFollowUps(items: ExportFollowUp[]) {
 }
 
 function exportSegmentSummary(
-  prospectItems: ExportProspect[],
-  opportunityItems: ExportOpportunity[]
+  prospectItems: ReportingProspect[],
+  opportunityItems: ReportingOpportunity[]
 ) {
   downloadCsv(
     "synthese-par-segment.csv",
@@ -345,7 +312,7 @@ function createPeriodFilter(period: string) {
   }
 
   const days = Number(period);
-  const end = new Date("2026-05-29T23:59:59");
+  const end = new Date();
   const start = new Date(end);
   start.setDate(end.getDate() - days);
 
@@ -359,7 +326,7 @@ function createPeriodFilter(period: string) {
   };
 }
 
-function getProspectScore(prospect: ExportProspect) {
+function getProspectScore(prospect: ReportingProspect) {
   return calculatePriorityScore({
     interestLevel: prospect.interest,
     estimatedBudget: prospect.estimatedPotential,

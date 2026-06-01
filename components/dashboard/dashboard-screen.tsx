@@ -20,52 +20,13 @@ import {
   segmentLabels
 } from "@/lib/constants";
 import { calculatePriorityScore, getPriorityTone } from "@/lib/priority-score";
+import type {
+  ReportingFollowUp,
+  ReportingOpportunity,
+  ReportingProspect,
+  ReportingVisit
+} from "@/lib/reporting-data";
 import type { OpportunityStage, SegmentCode } from "@/lib/types";
-
-type DashboardProspect = {
-  id: string;
-  company: string;
-  commercial: string;
-  segment: SegmentCode;
-  pipelineStage: OpportunityStage;
-  estimatedPotential: number;
-  createdAt: string;
-  interest: number;
-  projectTimeline: string;
-  capacityFit: number;
-  recurrencePotential: number;
-  needMaturity: number;
-};
-
-type DashboardOpportunity = {
-  id: string;
-  company: string;
-  title: string;
-  commercial: string;
-  segment: SegmentCode;
-  stage: OpportunityStage;
-  value: number;
-  createdAt: string;
-};
-
-type DashboardVisit = {
-  id: string;
-  commercial: string;
-  date: string;
-};
-
-type DashboardFollowUp = {
-  id: string;
-  company: string;
-  commercial: string;
-  dueAt: string;
-  status: "a_faire" | "fait";
-};
-
-const prospects: DashboardProspect[] = [];
-const opportunities: DashboardOpportunity[] = [];
-const visits: DashboardVisit[] = [];
-const followUps: DashboardFollowUp[] = [];
 
 const periodOptions = [
   { label: "30 derniers jours", value: "30" },
@@ -74,7 +35,19 @@ const periodOptions = [
   { label: "Toutes les periodes", value: "all" }
 ] as const;
 
-export function DashboardScreen() {
+type DashboardScreenProps = {
+  followUps: ReportingFollowUp[];
+  opportunities: ReportingOpportunity[];
+  prospects: ReportingProspect[];
+  visits: ReportingVisit[];
+};
+
+export function DashboardScreen({
+  followUps,
+  opportunities,
+  prospects,
+  visits
+}: DashboardScreenProps) {
   const [commercial, setCommercial] = useState("");
   const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("30");
 
@@ -85,7 +58,7 @@ export function DashboardScreen() {
         ...opportunities.map((opportunity) => opportunity.commercial)
       ])
     ).sort();
-  }, []);
+  }, [opportunities, prospects]);
 
   const filtered = useMemo(() => {
     const inPeriod = createPeriodFilter(period);
@@ -103,7 +76,7 @@ export function DashboardScreen() {
         (opportunity) => byCommercial(opportunity.commercial) && inPeriod(opportunity.createdAt)
       )
     };
-  }, [commercial, period]);
+  }, [commercial, followUps, opportunities, period, prospects, visits]);
 
   const potentialTotal = filtered.prospects.reduce(
     (sum, prospect) => sum + prospect.estimatedPotential,
@@ -325,7 +298,7 @@ function createPeriodFilter(period: string) {
   }
 
   const days = Number(period);
-  const end = new Date("2026-05-29T23:59:59");
+  const end = new Date();
   const start = new Date(end);
   start.setDate(end.getDate() - days);
 
@@ -341,10 +314,10 @@ function createPeriodFilter(period: string) {
 
 function isToday(value: string) {
   const date = new Date(value);
-  return date.toISOString().slice(0, 10) === "2026-05-29";
+  return date.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
 }
 
-function getPotentialBySegment(items: DashboardProspect[]) {
+function getPotentialBySegment(items: ReportingProspect[]) {
   return (Object.keys(segmentLabels) as SegmentCode[]).map((segment) => ({
     segment,
     value: items
@@ -353,7 +326,7 @@ function getPotentialBySegment(items: DashboardProspect[]) {
   }));
 }
 
-function getProspectScore(prospect: DashboardProspect) {
+function getProspectScore(prospect: ReportingProspect) {
   return calculatePriorityScore({
     interestLevel: prospect.interest,
     estimatedBudget: prospect.estimatedPotential,
@@ -364,7 +337,7 @@ function getProspectScore(prospect: DashboardProspect) {
   });
 }
 
-function rateForStage(items: DashboardProspect[], stage: OpportunityStage) {
+function rateForStage(items: ReportingProspect[], stage: OpportunityStage) {
   if (items.length === 0) {
     return 0;
   }
