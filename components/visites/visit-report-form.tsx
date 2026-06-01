@@ -10,13 +10,28 @@ type ProspectOption = {
   id: string;
   company_name: string;
   city: string | null;
+  status: string;
+};
+
+type ContactOption = {
+  id: string;
+  prospect_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  job_title: string | null;
 };
 
 const initialState: { error?: string } = {
   error: undefined
 };
 
-export function VisitReportForm({ prospects }: { prospects: ProspectOption[] }) {
+export function VisitReportForm({
+  contacts,
+  prospects
+}: {
+  contacts: ContactOption[];
+  prospects: ProspectOption[];
+}) {
   const [state, formAction] = useFormState(createVisitReport, initialState);
 
   return (
@@ -47,6 +62,21 @@ export function VisitReportForm({ prospects }: { prospects: ProspectOption[] }) 
         </select>
       </label>
 
+      <label className="block text-sm font-medium">
+        Personne concernee
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          name="contact_id"
+        >
+          <option value="">Non renseignee</option>
+          {contacts.map((contact) => (
+            <option key={contact.id} value={contact.id}>
+              {formatContact(contact)}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <Field label="Date de visite" name="visite_date" required type="datetime-local" />
 
       <label className="block text-sm font-medium">
@@ -61,6 +91,21 @@ export function VisitReportForm({ prospects }: { prospects: ProspectOption[] }) 
           <option value="visite_terrain">Visite terrain</option>
           <option value="salon">Salon</option>
           <option value="autre">Autre</option>
+        </select>
+      </label>
+
+      <label className="block text-sm font-medium">
+        Statut du prospect apres action
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          name="prospect_status"
+          required
+        >
+          <option value="en_cours">En cours</option>
+          <option value="qualifie">Qualifie</option>
+          <option value="contacte">Contacte</option>
+          <option value="client">Client</option>
+          <option value="perdu">Perdu</option>
         </select>
       </label>
 
@@ -90,11 +135,7 @@ export function VisitReportForm({ prospects }: { prospects: ProspectOption[] }) 
         </select>
       </label>
 
-      <Field
-        label="Date de relance"
-        name="prochaine_relance_at"
-        type="datetime-local"
-      />
+      <Field label="Date de l'action a realiser" name="prochaine_relance_at" type="datetime-local" />
 
       <details className="rounded-md border border-border p-3 lg:col-span-2">
         <summary className="cursor-pointer text-sm font-semibold">Details projet</summary>
@@ -157,7 +198,12 @@ function SubmitButton() {
   return (
     <Button className="w-full md:w-auto" disabled={pending} type="submit">
       <Save size={16} />
-      {pending ? "Enregistrement..." : "Enregistrer le compte-rendu"}
-    </Button>
+        {pending ? "Enregistrement..." : "Enregistrer l'action"}
+      </Button>
   );
+}
+
+function formatContact(contact: ContactOption) {
+  const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
+  return [name || "Contact", contact.job_title].filter(Boolean).join(" - ");
 }

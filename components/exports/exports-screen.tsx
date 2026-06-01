@@ -104,8 +104,8 @@ export function ExportsScreen({
     },
     {
       count: filtered.visits.length,
-      description: "Comptes-rendus de visites realisees sur la periode filtree.",
-      label: "Visites realisees",
+      description: "Actions realisees sur la periode filtree : visites, appels, emails, salons.",
+      label: "Actions realisees",
       onClick: () => exportVisits(filtered.visits)
     },
     {
@@ -230,9 +230,10 @@ function exportProspects(items: ReportingProspect[]) {
 
 function exportVisits(items: ReportingVisit[]) {
   downloadCsv(
-    "visites-realisees.csv",
+    "actions-realisees.csv",
     items.map((visit) => ({
       entreprise: visit.company,
+      personne_concernee: visit.contact,
       commercial: visit.commercial,
       date: visit.date,
       type: visit.type,

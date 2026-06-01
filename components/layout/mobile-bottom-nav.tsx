@@ -4,8 +4,8 @@ import { BarChart3, ClipboardList, Download, PlusCircle, Users } from "lucide-re
 const mobileItems = [
   { href: "/dashboard", label: "Accueil", icon: BarChart3 },
   { href: "/prospects", label: "Prospects", icon: Users },
-  { href: "/visites/new", label: "Visite", icon: PlusCircle, primary: true },
-  { href: "/visites", label: "CR", icon: ClipboardList },
+  { href: "/visites/new", label: "Action", icon: PlusCircle, primary: true },
+  { href: "/visites", label: "Actions", icon: ClipboardList },
   { href: "/exports", label: "Exports", icon: Download }
 ];
 

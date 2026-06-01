@@ -24,6 +24,7 @@ export type ReportingProspect = {
 export type ReportingVisit = {
   id: string;
   company: string;
+  contact: string;
   commercial: string;
   date: string;
   type: string;
@@ -78,6 +79,7 @@ type ProspectRow = {
 };
 
 type ContactRow = {
+  id: string;
   prospect_id: string;
   first_name: string | null;
   last_name: string | null;
@@ -96,6 +98,7 @@ type SegmentRow = {
 type VisitRow = {
   id: string;
   prospect_id: string;
+  contact_id: string | null;
   commercial_id: string;
   visite_date: string;
   type: string;
@@ -145,13 +148,13 @@ export async function getReportingData(supabase: any) {
       .order("created_at", { ascending: false }),
     supabase
       .from("contacts")
-      .select("prospect_id, first_name, last_name, commercial_id, is_primary")
+      .select("id, prospect_id, first_name, last_name, commercial_id, is_primary")
       .order("is_primary", { ascending: false }),
     supabase.from("users").select("id, full_name"),
     supabase.from("segments").select("id, code"),
     supabase
       .from("visites")
-      .select("id, prospect_id, commercial_id, visite_date, type, resume, niveau_interet, created_at, updated_at")
+      .select("id, prospect_id, contact_id, commercial_id, visite_date, type, resume, niveau_interet, created_at, updated_at")
       .order("visite_date", { ascending: false }),
     supabase
       .from("opportunites")
@@ -174,6 +177,12 @@ export async function getReportingData(supabase: any) {
   const contactByProspect = new Map(
     contactRows.map((contact) => [
       contact.prospect_id,
+      [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Contact non renseigne"
+    ])
+  );
+  const contactById = new Map(
+    contactRows.map((contact) => [
+      contact.id,
       [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Contact non renseigne"
     ])
   );
@@ -217,6 +226,9 @@ export async function getReportingData(supabase: any) {
     return {
       id: visit.id,
       company: prospect?.company_name ?? "Prospect",
+      contact: visit.contact_id
+        ? contactById.get(visit.contact_id) ?? "Contact non renseigne"
+        : "Non renseignee",
       commercial: userById.get(visit.commercial_id) ?? "Commercial",
       date: visit.visite_date,
       type: visit.type,

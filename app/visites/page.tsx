@@ -10,6 +10,7 @@ import { scopeByCommercial } from "@/lib/supabase/role-filters";
 type VisitRow = {
   id: string;
   prospect_id: string;
+  contact_id: string | null;
   visite_date: string;
   type: string;
   resume: string;
@@ -19,6 +20,12 @@ type VisitRow = {
 type ProspectRow = {
   id: string;
   company_name: string;
+};
+
+type ContactRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
 };
 
 export default async function VisitesPage() {
@@ -31,35 +38,46 @@ export default async function VisitesPage() {
 
   const visitsQuery = supabase
     .from("visites")
-    .select("id, prospect_id, commercial_id, visite_date, type, resume, niveau_interet")
+    .select("id, prospect_id, contact_id, commercial_id, visite_date, type, resume, niveau_interet")
     .order("visite_date", { ascending: false });
 
-  const [{ data: visits }, { data: prospects }] = await Promise.all([
+  const [{ data: visits }, { data: prospects }, { data: contacts }] = await Promise.all([
     scopeByCommercial(visitsQuery, profile),
     scopeByCommercial(
       supabase.from("prospects").select("id, company_name, commercial_id"),
+      profile
+    ),
+    scopeByCommercial(
+      supabase.from("contacts").select("id, first_name, last_name, commercial_id"),
       profile
     )
   ]);
 
   const visitRows = (visits ?? []) as VisitRow[];
   const prospectRows = (prospects ?? []) as ProspectRow[];
+  const contactRows = (contacts ?? []) as ContactRow[];
   const prospectById = new Map(
     prospectRows.map((prospect) => [prospect.id, prospect.company_name])
+  );
+  const contactById = new Map(
+    contactRows.map((contact) => [
+      contact.id,
+      [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Personne non renseignee"
+    ])
   );
 
   return (
     <main>
       <PageHeader
-        title="Visites"
-        description="Comptes-rendus terrain, niveau d'interet et prochaines relances."
+        title="Actions"
+        description="Actions commerciales realisees : visites, appels, emails, salons et prochaines actions."
         action={
           <Link
             className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
             href="/visites/new"
           >
             <Plus size={16} />
-            Nouveau compte-rendu
+            Nouvelle action
           </Link>
         }
       />
@@ -70,6 +88,9 @@ export default async function VisitesPage() {
               <div>
                 <h2 className="font-semibold">{prospectById.get(visit.prospect_id) ?? "Prospect"}</h2>
                 <p className="mt-1 text-sm text-muted">{visit.resume}</p>
+                <p className="mt-1 text-xs text-muted">
+                  Personne : {visit.contact_id ? contactById.get(visit.contact_id) ?? "Non renseignee" : "Non renseignee"}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <StatusPill>{visit.type}</StatusPill>

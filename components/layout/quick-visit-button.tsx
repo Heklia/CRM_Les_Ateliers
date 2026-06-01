@@ -8,7 +8,7 @@ export function QuickVisitButton() {
       href="/visites/new"
     >
       <PlusCircle size={20} />
-      Ajouter visite
+      Ajouter action
     </Link>
   );
 }

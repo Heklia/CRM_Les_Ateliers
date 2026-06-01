@@ -23,6 +23,7 @@ const interestMap = {
 } as const;
 const contactTypes = ["appel", "email", "visite_terrain", "salon", "autre"] as const;
 const interestLevels = ["froid", "tiede", "chaud"] as const;
+const prospectStatuses = ["nouveau", "a_qualifier", "qualifie", "contacte", "en_cours", "client", "perdu"] as const;
 
 export async function updateVisitReport(
   _previousState: UpdateVisitState,
@@ -42,6 +43,7 @@ export async function updateVisitReport(
   const need = requiredText(formData, "besoins", "Besoin identifie");
   const nextActions = requiredText(formData, "prochaine_etape", "Prochaines actions");
   const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
+  const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
   const budget = optionalNonNegativeNumber(formData, "budget_estime", "Budget estime");
   const followUpDate = optionalDateTime(formData, "prochaine_relance_at", "Date de relance");
 
@@ -52,6 +54,7 @@ export async function updateVisitReport(
   if (!need.ok) return { error: need.error };
   if (!nextActions.ok) return { error: nextActions.error };
   if (!interest.ok) return { error: interest.error };
+  if (!prospectStatus.ok) return { error: prospectStatus.error };
   if (!budget.ok) return { error: budget.error };
   if (!followUpDate.ok) return { error: followUpDate.error };
 
@@ -83,6 +86,7 @@ export async function updateVisitReport(
     .from("visites")
     .update({
       prospect_id: prospectId.data,
+      contact_id: optionalText(formData, "contact_id"),
       commercial_id: prospect.commercial_id,
       visite_date: visitDate.data,
       type: contactType.data,
@@ -109,9 +113,37 @@ export async function updateVisitReport(
     .from("prospects")
     .update({
       last_interaction_at: visitDate.data,
-      interest_level: interestMap[interest.data]
+      interest_level: interestMap[interest.data],
+      status: prospectStatus.data,
+      ...(prospectStatus.data === "perdu" ? { pipeline_stage: "perdu" } : {})
     })
     .eq("id", prospectId.data);
+
+  await supabase
+    .from("actions_suivantes")
+    .delete()
+    .eq("visite_id", visitId.data)
+    .eq("status", "a_faire");
+
+  if (prospectStatus.data !== "perdu") {
+    const { error: actionError } = await supabase.from("actions_suivantes").insert({
+      prospect_id: prospectId.data,
+      visite_id: visitId.data,
+      commercial_id: prospect.commercial_id,
+      type: toFollowUpType(contactType.data),
+      title: nextActions.data,
+      description: optionalText(formData, "commentaire"),
+      due_at: followUpDate.data ?? getDefaultFollowUpDate(visitDate.data),
+      status: "a_faire",
+      priority: interest.data === "chaud" ? "haute" : "normale"
+    });
+
+    if (actionError) {
+      return {
+        error: "La visite est modifiee, mais l'action a realiser n'a pas pu etre creee."
+      };
+    }
+  }
 
   redirect("/visites");
 }
@@ -122,4 +154,16 @@ function buildSummary(formData: FormData) {
   const need = String(formData.get("besoins") ?? "").trim();
 
   return [need, application, matter].filter(Boolean).join(" | ");
+}
+
+function getDefaultFollowUpDate(visitDate: string) {
+  const date = new Date(visitDate);
+  date.setDate(date.getDate() + 7);
+  return date.toISOString();
+}
+
+function toFollowUpType(type: (typeof contactTypes)[number]) {
+  if (type === "visite_terrain") return "visite";
+  if (type === "salon") return "autre";
+  return type;
 }

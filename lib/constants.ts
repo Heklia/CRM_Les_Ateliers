@@ -3,7 +3,7 @@ import type { NavItem } from "@/lib/types";
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Prospects", href: "/prospects" },
-  { label: "Visites", href: "/visites" },
+  { label: "Actions", href: "/visites" },
   { label: "Pipeline", href: "/pipeline" },
   { label: "Exports", href: "/exports" }
 ];

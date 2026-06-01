@@ -23,12 +23,22 @@ type VisitRow = {
   prochaine_etape: string | null;
   prochaine_relance_at: string | null;
   commentaire: string | null;
+  contact_id: string | null;
 };
 
 type ProspectRow = {
   id: string;
   company_name: string;
   city: string | null;
+  status: string;
+};
+
+type ContactRow = {
+  id: string;
+  prospect_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  job_title: string | null;
 };
 
 export default async function EditVisitPage({
@@ -43,17 +53,24 @@ export default async function EditVisitPage({
     redirect("/login");
   }
 
-  const [{ data: visit }, { data: prospects }] = await Promise.all([
+  const [{ data: visit }, { data: prospects }, { data: contacts }] = await Promise.all([
     supabase
       .from("visites")
-      .select("id, prospect_id, commercial_id, visite_date, type, personnes_rencontrees, besoins, freins, application_envisagee, matiere_procede, budget_estime, delai_projet, niveau_interet, prochaine_etape, prochaine_relance_at, commentaire")
+      .select("id, prospect_id, contact_id, commercial_id, visite_date, type, personnes_rencontrees, besoins, freins, application_envisagee, matiere_procede, budget_estime, delai_projet, niveau_interet, prochaine_etape, prochaine_relance_at, commentaire")
       .eq("id", params.id)
       .single(),
     scopeByCommercial(
       supabase
         .from("prospects")
-        .select("id, company_name, city, commercial_id")
+        .select("id, company_name, city, status, commercial_id")
         .order("company_name", { ascending: true }),
+      profile
+    ),
+    scopeByCommercial(
+      supabase
+        .from("contacts")
+        .select("id, prospect_id, first_name, last_name, job_title, commercial_id")
+        .order("is_primary", { ascending: false }),
       profile
     )
   ]);
@@ -64,12 +81,14 @@ export default async function EditVisitPage({
 
   const visitRow = visit as VisitRow;
   const prospectRows = (prospects ?? []) as ProspectRow[];
+  const contactRows = (contacts ?? []) as ContactRow[];
+  const currentProspect = prospectRows.find((prospect) => prospect.id === visitRow.prospect_id);
 
   return (
     <main>
       <PageHeader
-        title="Modifier la visite"
-        description="Mettre a jour le compte-rendu terrain et les prochaines actions."
+        title="Modifier l'action"
+        description="Mettre a jour l'action commerciale et l'action a realiser."
         action={
           <Link
             className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-white px-4 text-sm font-semibold text-foreground transition hover:bg-background"
@@ -82,10 +101,12 @@ export default async function EditVisitPage({
       />
 
       <EditVisitReportForm
+        contacts={contactRows}
         prospects={prospectRows}
         visit={{
           id: visitRow.id,
           prospectId: visitRow.prospect_id,
+          contactId: visitRow.contact_id,
           visitDate: visitRow.visite_date,
           type: visitRow.type,
           peopleMet: visitRow.personnes_rencontrees,
@@ -96,6 +117,7 @@ export default async function EditVisitPage({
           budget: visitRow.budget_estime,
           timeline: visitRow.delai_projet,
           interest: toInterestLabel(visitRow.niveau_interet),
+          prospectStatus: currentProspect?.status ?? "en_cours",
           nextStep: visitRow.prochaine_etape ?? "",
           followUpAt: visitRow.prochaine_relance_at,
           comment: visitRow.commentaire

@@ -10,11 +10,21 @@ type ProspectOption = {
   id: string;
   company_name: string;
   city: string | null;
+  status: string;
+};
+
+type ContactOption = {
+  id: string;
+  prospect_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  job_title: string | null;
 };
 
 type VisitValue = {
   id: string;
   prospectId: string;
+  contactId: string | null;
   visitDate: string;
   type: string;
   peopleMet: string | null;
@@ -25,6 +35,7 @@ type VisitValue = {
   budget: number | null;
   timeline: string | null;
   interest: "froid" | "tiede" | "chaud";
+  prospectStatus: string;
   nextStep: string;
   followUpAt: string | null;
   comment: string | null;
@@ -33,9 +44,11 @@ type VisitValue = {
 const initialState: { error?: string } = {};
 
 export function EditVisitReportForm({
+  contacts,
   prospects,
   visit
 }: {
+  contacts: ContactOption[];
   prospects: ProspectOption[];
   visit: VisitValue;
 }) {
@@ -71,6 +84,22 @@ export function EditVisitReportForm({
         </select>
       </label>
 
+      <label className="block text-sm font-medium">
+        Personne concernee
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          defaultValue={visit.contactId ?? ""}
+          name="contact_id"
+        >
+          <option value="">Non renseignee</option>
+          {contacts.map((contact) => (
+            <option key={contact.id} value={contact.id}>
+              {formatContact(contact)}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <Field
         defaultValue={toDateTimeLocal(visit.visitDate)}
         label="Date de visite"
@@ -92,6 +121,22 @@ export function EditVisitReportForm({
           <option value="visite_terrain">Visite terrain</option>
           <option value="salon">Salon</option>
           <option value="autre">Autre</option>
+        </select>
+      </label>
+
+      <label className="block text-sm font-medium">
+        Statut du prospect apres action
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          defaultValue={visit.prospectStatus}
+          name="prospect_status"
+          required
+        >
+          <option value="en_cours">En cours</option>
+          <option value="qualifie">Qualifie</option>
+          <option value="contacte">Contacte</option>
+          <option value="client">Client</option>
+          <option value="perdu">Perdu</option>
         </select>
       </label>
 
@@ -124,7 +169,7 @@ export function EditVisitReportForm({
 
       <Field
         defaultValue={visit.followUpAt ? toDateTimeLocal(visit.followUpAt) : ""}
-        label="Date de relance"
+        label="Date de l'action a realiser"
         name="prochaine_relance_at"
         type="datetime-local"
       />
@@ -182,6 +227,11 @@ export function EditVisitReportForm({
       </div>
     </form>
   );
+}
+
+function formatContact(contact: ContactOption) {
+  const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
+  return [name || "Contact", contact.job_title].filter(Boolean).join(" - ");
 }
 
 function SubmitButton() {

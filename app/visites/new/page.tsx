@@ -15,18 +15,25 @@ export default async function NewVisitPage() {
 
   const prospectsQuery = supabase
     .from("prospects")
-    .select("id, company_name, city")
+    .select("id, company_name, city, status")
     .order("company_name", { ascending: true });
-  const { data: prospects } = await scopeByCommercial(prospectsQuery, profile);
+  const contactsQuery = supabase
+    .from("contacts")
+    .select("id, prospect_id, first_name, last_name, job_title, is_primary")
+    .order("is_primary", { ascending: false });
+  const [{ data: prospects }, { data: contacts }] = await Promise.all([
+    scopeByCommercial(prospectsQuery, profile),
+    scopeByCommercial(contactsQuery, profile)
+  ]);
 
   return (
     <main>
       <PageHeader
-        title="Compte-rendu de visite"
-        description="Saisie rapide terrain : prospect, besoin, interet, prochaine action."
+        title="Nouvelle action"
+        description="Saisie rapide terrain : prospect, personne concernee, besoin, interet et prochaine action."
       />
 
-      <VisitReportForm prospects={prospects ?? []} />
+      <VisitReportForm contacts={contacts ?? []} prospects={prospects ?? []} />
     </main>
   );
 }

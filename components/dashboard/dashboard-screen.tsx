@@ -36,6 +36,12 @@ const periodOptions = [
   { label: "Toutes les periodes", value: "all" }
 ] as const;
 
+const followUpPeriodOptions = [
+  { label: "Aujourd'hui", value: "today" },
+  { label: "Cette semaine", value: "week" },
+  { label: "Ce mois", value: "month" }
+] as const;
+
 type DashboardScreenProps = {
   followUps: ReportingFollowUp[];
   opportunities: ReportingOpportunity[];
@@ -53,6 +59,8 @@ export function DashboardScreen({
 }: DashboardScreenProps) {
   const [commercial, setCommercial] = useState("");
   const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("30");
+  const [followUpPeriod, setFollowUpPeriod] =
+    useState<(typeof followUpPeriodOptions)[number]["value"]>("today");
   const canFilterCommercials = profile.role === "admin" || profile.role === "manager";
 
   const commercials = useMemo(() => {
@@ -91,7 +99,9 @@ export function DashboardScreen({
     (opportunity) => opportunity.stage !== "prospect_identifie"
   );
   const hotProspects = filtered.prospects.filter((prospect) => prospect.interest >= 4);
-  const todaysFollowUps = filtered.followUps.filter((followUp) => isToday(followUp.dueAt));
+  const visibleFollowUps = filtered.followUps.filter((followUp) =>
+    isInFollowUpPeriod(followUp.dueAt, followUpPeriod)
+  );
   const averagePriorityScore = filtered.prospects.length
     ? Math.round(
         filtered.prospects.reduce((sum, prospect) => sum + getProspectScore(prospect), 0) /
@@ -163,7 +173,7 @@ export function DashboardScreen({
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Users} label="Prospects crees" value={`${filtered.prospects.length}`} detail="Nouveaux comptes sur la periode" />
         <StatCard icon={CalendarCheck} label="Visites realisees" value={`${filtered.visits.length}`} detail="Comptes-rendus saisis" />
-        <StatCard icon={ListTodo} label="Relances a faire" value={`${filtered.followUps.length}`} detail="Actions ouvertes" />
+        <StatCard icon={ListTodo} label="Actions a realiser" value={`${filtered.followUps.length}`} detail="Actions ouvertes" />
         <StatCard icon={Target} label="Opportunites detectees" value={`${detectedOpportunities.length}`} detail="Hors simple identification" />
       </section>
 
@@ -177,21 +187,39 @@ export function DashboardScreen({
       <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft xl:col-span-2">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Relances du jour</h2>
-            <StatusPill tone={todaysFollowUps.length ? "warning" : "success"}>
-              {todaysFollowUps.length}
+            <h2 className="text-base font-semibold">Actions a realiser</h2>
+            <StatusPill tone={visibleFollowUps.length ? "warning" : "success"}>
+              {visibleFollowUps.length}
             </StatusPill>
           </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {followUpPeriodOptions.map((option) => (
+              <button
+                className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                  followUpPeriod === option.value
+                    ? "border-primary bg-primary text-white"
+                    : "border-border bg-white text-muted hover:bg-background hover:text-foreground"
+                }`}
+                key={option.value}
+                onClick={() => setFollowUpPeriod(option.value)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {todaysFollowUps.length ? (
-              todaysFollowUps.map((followUp) => (
+            {visibleFollowUps.length ? (
+              visibleFollowUps.map((followUp) => (
                 <article
                   className="flex items-center justify-between gap-3 rounded-md border border-border p-4"
                   key={followUp.id}
                 >
                   <div>
                     <h3 className="text-sm font-semibold">{followUp.company}</h3>
-                    <p className="mt-1 text-xs text-muted">{followUp.commercial}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {followUp.commercial} - {formatDate(followUp.dueAt)}
+                    </p>
                   </div>
                   <a
                     className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white"
@@ -203,7 +231,7 @@ export function DashboardScreen({
                 </article>
               ))
             ) : (
-              <p className="text-sm text-muted">Aucune relance prevue aujourd'hui.</p>
+              <p className="text-sm text-muted">Aucune action a realiser sur cette periode.</p>
             )}
           </div>
         </div>
@@ -328,9 +356,22 @@ function createPeriodFilter(period: string) {
   };
 }
 
-function isToday(value: string) {
+function isInFollowUpPeriod(value: string, period: "today" | "week" | "month") {
   const date = new Date(value);
-  return date.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+
+  if (period === "today") {
+    end.setDate(start.getDate() + 1);
+  } else if (period === "week") {
+    end.setDate(start.getDate() + 7);
+  } else {
+    end.setMonth(start.getMonth() + 1);
+  }
+
+  return date >= start && date < end;
 }
 
 function getPotentialBySegment(items: ReportingProspect[]) {
@@ -374,4 +415,12 @@ function formatRate(value: number) {
     maximumFractionDigits: 0,
     style: "percent"
   }).format(value);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(new Date(value));
 }
