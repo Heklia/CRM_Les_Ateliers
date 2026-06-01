@@ -24,7 +24,7 @@ const interestMap = {
 } as const;
 const contactTypes = ["appel", "email", "visite_terrain", "salon", "autre"] as const;
 const interestLevels = ["froid", "tiede", "chaud"] as const;
-const prospectStatuses = ["nouveau", "a_qualifier", "qualifie", "contacte", "en_cours", "client", "perdu"] as const;
+const prospectStatuses = ["en_cours", "qualifie", "client", "perdu"] as const;
 
 export async function updateVisitReport(
   _previousState: UpdateVisitState,

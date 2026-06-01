@@ -127,7 +127,6 @@ export function VisitReportForm({
         >
           <option value="en_cours">En cours</option>
           <option value="qualifie">Qualifie</option>
-          <option value="contacte">Contacte</option>
           <option value="client">Client</option>
           <option value="perdu">Perdu</option>
         </select>
