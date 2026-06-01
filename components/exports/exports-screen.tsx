@@ -222,7 +222,8 @@ function exportProspects(items: ReportingProspect[]) {
       score_priorite: getProspectScore(prospect),
       derniere_visite: prospect.lastVisit,
       prochaine_action: prospect.nextAction,
-      date_creation: prospect.createdAt
+      date_creation: prospect.createdAt,
+      date_derniere_modification: prospect.updatedAt
     }))
   );
 }
@@ -236,7 +237,9 @@ function exportVisits(items: ReportingVisit[]) {
       date: visit.date,
       type: visit.type,
       resume: visit.summary,
-      niveau_interet: visit.interest
+      niveau_interet: visit.interest,
+      date_creation: visit.createdAt,
+      date_derniere_modification: visit.updatedAt
     }))
   );
 }
@@ -252,7 +255,8 @@ function exportOpportunities(items: ReportingOpportunity[]) {
       etape: opportunityStageLabels[opportunity.stage],
       potentiel_estime: opportunity.value,
       probabilite: opportunity.probability,
-      date_creation: opportunity.createdAt
+      date_creation: opportunity.createdAt,
+      date_derniere_modification: opportunity.updatedAt
     }))
   );
 }
@@ -264,7 +268,9 @@ function exportFollowUps(items: ReportingFollowUp[]) {
       entreprise: followUp.company,
       commercial: followUp.commercial,
       date_relance: followUp.dueAt,
-      statut: followUp.status
+      statut: followUp.status,
+      date_creation: followUp.createdAt,
+      date_derniere_modification: followUp.updatedAt
     }))
   );
 }

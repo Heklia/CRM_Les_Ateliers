@@ -11,6 +11,7 @@ export type ReportingProspect = {
   pipelineStage: OpportunityStage;
   estimatedPotential: number;
   createdAt: string;
+  updatedAt: string;
   lastVisit: string | null;
   interest: number;
   projectTimeline: string;
@@ -29,6 +30,8 @@ export type ReportingVisit = {
   summary: string;
   interest: number;
   segment: SegmentCode | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ReportingOpportunity = {
@@ -41,6 +44,7 @@ export type ReportingOpportunity = {
   value: number;
   probability: number;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type ReportingFollowUp = {
@@ -50,6 +54,8 @@ export type ReportingFollowUp = {
   dueAt: string;
   status: string;
   segment: SegmentCode | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type ProspectRow = {
@@ -62,6 +68,7 @@ type ProspectRow = {
   pipeline_stage: string;
   estimated_potential: number | null;
   created_at: string;
+  updated_at: string;
   last_interaction_at: string | null;
   interest_level: number | null;
   project_timeline: string;
@@ -94,6 +101,8 @@ type VisitRow = {
   type: string;
   resume: string | null;
   niveau_interet: number | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type OpportunityRow = {
@@ -106,6 +115,7 @@ type OpportunityRow = {
   estimated_value: number | null;
   probability: number | null;
   created_at: string;
+  updated_at: string;
 };
 
 type FollowUpRow = {
@@ -115,6 +125,8 @@ type FollowUpRow = {
   title: string;
   due_at: string;
   status: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export async function getReportingData(supabase: any) {
@@ -129,7 +141,7 @@ export async function getReportingData(supabase: any) {
   ] = await Promise.all([
     supabase
       .from("prospects")
-      .select("id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
+      .select("id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
       .order("created_at", { ascending: false }),
     supabase
       .from("contacts")
@@ -139,15 +151,15 @@ export async function getReportingData(supabase: any) {
     supabase.from("segments").select("id, code"),
     supabase
       .from("visites")
-      .select("id, prospect_id, commercial_id, visite_date, type, resume, niveau_interet")
+      .select("id, prospect_id, commercial_id, visite_date, type, resume, niveau_interet, created_at, updated_at")
       .order("visite_date", { ascending: false }),
     supabase
       .from("opportunites")
-      .select("id, prospect_id, commercial_id, segment_id, title, stage, estimated_value, probability, created_at")
+      .select("id, prospect_id, commercial_id, segment_id, title, stage, estimated_value, probability, created_at, updated_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("actions_suivantes")
-      .select("id, prospect_id, commercial_id, title, due_at, status")
+      .select("id, prospect_id, commercial_id, title, due_at, status, created_at, updated_at")
       .order("due_at", { ascending: true })
   ]);
 
@@ -189,6 +201,7 @@ export async function getReportingData(supabase: any) {
     pipelineStage: prospect.pipeline_stage as OpportunityStage,
     estimatedPotential: prospect.estimated_potential ?? 0,
     createdAt: prospect.created_at,
+    updatedAt: prospect.updated_at,
     lastVisit: prospect.last_interaction_at,
     interest: prospect.interest_level ?? 0,
     projectTimeline: prospect.project_timeline,
@@ -209,7 +222,9 @@ export async function getReportingData(supabase: any) {
       type: visit.type,
       summary: visit.resume ?? "",
       interest: visit.niveau_interet ?? 0,
-      segment: prospect ? ((segmentById.get(prospect.segment_id) ?? null) as SegmentCode | null) : null
+      segment: prospect ? ((segmentById.get(prospect.segment_id) ?? null) as SegmentCode | null) : null,
+      createdAt: visit.created_at,
+      updatedAt: visit.updated_at
     };
   });
 
@@ -225,7 +240,8 @@ export async function getReportingData(supabase: any) {
       stage: opportunity.stage as OpportunityStage,
       value: opportunity.estimated_value ?? 0,
       probability: opportunity.probability ?? 0,
-      createdAt: opportunity.created_at
+      createdAt: opportunity.created_at,
+      updatedAt: opportunity.updated_at
     };
   });
 
@@ -238,7 +254,9 @@ export async function getReportingData(supabase: any) {
       commercial: userById.get(followUp.commercial_id) ?? "Commercial",
       dueAt: followUp.due_at,
       status: followUp.status,
-      segment: prospect ? ((segmentById.get(prospect.segment_id) ?? null) as SegmentCode | null) : null
+      segment: prospect ? ((segmentById.get(prospect.segment_id) ?? null) as SegmentCode | null) : null,
+      createdAt: followUp.created_at,
+      updatedAt: followUp.updated_at
     };
   });
 

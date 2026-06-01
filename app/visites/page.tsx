@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getCurrentProfile } from "@/lib/auth/roles";
@@ -74,6 +74,13 @@ export default async function VisitesPage() {
               <div className="flex items-center gap-2">
                 <StatusPill>{visit.type}</StatusPill>
                 <span className="text-sm text-muted">{formatDate(visit.visite_date)}</span>
+                <Link
+                  aria-label="Modifier la visite"
+                  className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-white text-muted hover:bg-background hover:text-foreground"
+                  href={`/visites/${visit.id}/edit`}
+                >
+                  <Pencil size={16} />
+                </Link>
               </div>
             </div>
           </article>
