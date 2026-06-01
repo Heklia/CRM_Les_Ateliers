@@ -41,7 +41,7 @@ export async function createVisitReport(
   const visitDate = requiredDateTime(formData, "visite_date", "Date de visite");
   const contactType = requiredEnum(formData, "type", "Type de contact", contactTypes);
   const need = requiredText(formData, "besoins", "Besoin identifie");
-  const nextActions = requiredText(formData, "prochaine_etape", "Prochaines actions");
+  const nextActions = requiredEnum(formData, "prochaine_etape", "Prochaine action", contactTypes);
   const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
   const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
   const budget = optionalNonNegativeNumber(formData, "budget_estime", "Budget estime");
@@ -138,8 +138,8 @@ export async function createVisitReport(
       prospect_id: validatedProspectId,
       visite_id: visit.id,
       commercial_id: prospect.commercial_id,
-      type: toFollowUpType(validatedContactType),
-      title: validatedNextActions,
+      type: toFollowUpType(validatedNextActions),
+      title: getContactTypeLabel(validatedNextActions),
       description: optionalText(formData, "commentaire"),
       due_at: validatedFollowUpDate ?? getDefaultFollowUpDate(validatedVisitDate),
       status: "a_faire",
@@ -174,6 +174,18 @@ function toFollowUpType(type: (typeof contactTypes)[number]) {
   if (type === "visite_terrain") return "visite";
   if (type === "salon") return "autre";
   return type;
+}
+
+function getContactTypeLabel(type: (typeof contactTypes)[number]) {
+  const labels = {
+    appel: "Appel",
+    email: "Email",
+    visite_terrain: "Visite terrain",
+    salon: "Salon",
+    autre: "Autre"
+  };
+
+  return labels[type];
 }
 
 async function resolveActionContact(

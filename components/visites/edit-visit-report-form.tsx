@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Save } from "lucide-react";
+import { Flame, Save, Snowflake, ThermometerSun } from "lucide-react";
 import { updateVisitReport } from "@/app/visites/[id]/edit/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -43,6 +43,14 @@ type VisitValue = {
 };
 
 const initialState: { error?: string } = {};
+
+const interestOptions = [
+  { icon: Snowflake, label: "Froid", value: "froid" },
+  { icon: ThermometerSun, label: "Tiede", value: "tiede" },
+  { icon: Flame, label: "Chaud", value: "chaud" }
+] as const;
+
+const nextActionValues = ["appel", "email", "visite_terrain", "salon", "autre"] as const;
 
 export function EditVisitReportForm({
   contacts,
@@ -167,32 +175,54 @@ export function EditVisitReportForm({
         name="besoins"
         required
       />
-      <Field
-        defaultValue={visit.nextStep}
-        label="Prochaines actions"
-        name="prochaine_etape"
-        required
-      />
-
       <label className="block text-sm font-medium">
-        Niveau d'interet
+        Prochaine action
         <select
           className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          defaultValue={visit.interest}
-          name="niveau_interet"
+          defaultValue={getNextActionValue(visit.nextStep)}
+          name="prochaine_etape"
           required
         >
-          <option value="froid">Froid</option>
-          <option value="tiede">Tiede</option>
-          <option value="chaud">Chaud</option>
+          <option value="appel">Appel</option>
+          <option value="email">Email</option>
+          <option value="visite_terrain">Visite terrain</option>
+          <option value="salon">Salon</option>
+          <option value="autre">Autre</option>
         </select>
       </label>
 
+      <div className="lg:col-span-2">
+        <span className="block text-sm font-medium">Niveau d'interet</span>
+        <div className="mt-1 grid gap-2 sm:grid-cols-3">
+          {interestOptions.map((option) => {
+            const Icon = option.icon;
+
+            return (
+              <label
+                className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
+                key={option.value}
+              >
+                <input
+                  className="sr-only"
+                  defaultChecked={option.value === visit.interest}
+                  name="niveau_interet"
+                  required
+                  type="radio"
+                  value={option.value}
+                />
+                <Icon size={18} />
+                {option.label}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
       <Field
-        defaultValue={visit.followUpAt ? toDateTimeLocal(visit.followUpAt) : ""}
+        defaultValue={visit.followUpAt ? toDate(visit.followUpAt) : ""}
         label="Date de l'action a realiser"
         name="prochaine_relance_at"
-        type="datetime-local"
+        type="date"
       />
 
       <details className="rounded-md border border-border p-3 lg:col-span-2" open>
@@ -271,4 +301,14 @@ function toDateTimeLocal(value: string) {
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60 * 1000);
   return local.toISOString().slice(0, 16);
+}
+
+function toDate(value: string) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function getNextActionValue(value: string) {
+  return nextActionValues.includes(value as (typeof nextActionValues)[number])
+    ? value
+    : "appel";
 }

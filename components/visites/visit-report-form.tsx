@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Save } from "lucide-react";
+import { Flame, Save, Snowflake, ThermometerSun } from "lucide-react";
 import { createVisitReport } from "@/app/visites/new/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -25,6 +25,12 @@ type ContactOption = {
 const initialState: { error?: string } = {
   error: undefined
 };
+
+const interestOptions = [
+  { icon: Snowflake, label: "Froid", value: "froid" },
+  { icon: ThermometerSun, label: "Tiede", value: "tiede" },
+  { icon: Flame, label: "Chaud", value: "chaud" }
+] as const;
 
 export function VisitReportForm({
   contacts,
@@ -138,27 +144,49 @@ export function VisitReportForm({
         placeholder="Besoin exprime ou observe"
         required
       />
-      <Field
-        label="Prochaines actions"
-        name="prochaine_etape"
-        placeholder="Relancer, envoyer devis, organiser rendez-vous technique..."
-        required
-      />
-
       <label className="block text-sm font-medium">
-        Niveau d'interet
+        Prochaine action
         <select
           className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          name="niveau_interet"
+          name="prochaine_etape"
           required
         >
-          <option value="froid">Froid</option>
-          <option value="tiede">Tiede</option>
-          <option value="chaud">Chaud</option>
+          <option value="appel">Appel</option>
+          <option value="email">Email</option>
+          <option value="visite_terrain">Visite terrain</option>
+          <option value="salon">Salon</option>
+          <option value="autre">Autre</option>
         </select>
       </label>
 
-      <Field label="Date de l'action a realiser" name="prochaine_relance_at" type="datetime-local" />
+      <div className="lg:col-span-2">
+        <span className="block text-sm font-medium">Niveau d'interet</span>
+        <div className="mt-1 grid gap-2 sm:grid-cols-3">
+          {interestOptions.map((option) => {
+            const Icon = option.icon;
+
+            return (
+              <label
+                className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
+                key={option.value}
+              >
+                <input
+                  className="sr-only"
+                  defaultChecked={option.value === "tiede"}
+                  name="niveau_interet"
+                  required
+                  type="radio"
+                  value={option.value}
+                />
+                <Icon size={18} />
+                {option.label}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <Field label="Date de l'action a realiser" name="prochaine_relance_at" type="date" />
 
       <details className="rounded-md border border-border p-3 lg:col-span-2">
         <summary className="cursor-pointer text-sm font-semibold">Details projet</summary>
