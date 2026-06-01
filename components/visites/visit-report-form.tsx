@@ -185,6 +185,7 @@ export function VisitReportForm({
           <option value="email">Email</option>
           <option value="visite_terrain">Visite terrain</option>
           <option value="salon">Salon</option>
+          <option value="devis">Devis</option>
           <option value="autre">Autre</option>
         </select>
       </label>

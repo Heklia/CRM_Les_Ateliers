@@ -62,7 +62,7 @@ const interestOptions = [
   { icon: Flame, label: "Chaud", value: "chaud" }
 ] as const;
 
-const nextActionValues = ["appel", "email", "visite_terrain", "salon", "autre"] as const;
+const nextActionValues = ["appel", "email", "visite_terrain", "salon", "devis", "autre"] as const;
 
 export function EditVisitReportForm({
   contacts,
@@ -187,6 +187,7 @@ export function EditVisitReportForm({
           <option value="email">Email</option>
           <option value="visite_terrain">Visite terrain</option>
           <option value="salon">Salon</option>
+          <option value="devis">Devis</option>
           <option value="autre">Autre</option>
         </select>
       </label>

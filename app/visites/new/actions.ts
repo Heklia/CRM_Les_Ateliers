@@ -23,6 +23,7 @@ const interestMap = {
   chaud: 5
 } as const;
 const contactTypes = ["appel", "email", "visite_terrain", "salon", "autre"] as const;
+const nextActionTypes = ["appel", "email", "visite_terrain", "salon", "devis", "autre"] as const;
 const interestLevels = ["froid", "tiede", "chaud"] as const;
 const prospectStatuses = ["en_cours", "qualifie", "client", "perdu"] as const;
 
@@ -41,7 +42,7 @@ export async function createVisitReport(
   const visitDate = requiredDateTime(formData, "visite_date", "Date de visite");
   const contactType = requiredEnum(formData, "type", "Type de contact", contactTypes);
   const need = requiredText(formData, "besoins", "Besoin identifie");
-  const nextActions = requiredEnum(formData, "prochaine_etape", "Prochaine action", contactTypes);
+  const nextActions = requiredEnum(formData, "prochaine_etape", "Prochaine action", nextActionTypes);
   const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
   const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
   const budget = optionalNonNegativeNumber(formData, "budget_estime", "Budget estime");
@@ -186,18 +187,19 @@ function getDefaultFollowUpDate(visitDate: string) {
   return date.toISOString();
 }
 
-function toFollowUpType(type: (typeof contactTypes)[number]) {
+function toFollowUpType(type: (typeof nextActionTypes)[number]) {
   if (type === "visite_terrain") return "visite";
   if (type === "salon") return "autre";
   return type;
 }
 
-function getContactTypeLabel(type: (typeof contactTypes)[number]) {
+function getContactTypeLabel(type: (typeof nextActionTypes)[number]) {
   const labels = {
     appel: "Appel",
     email: "Email",
     visite_terrain: "Visite terrain",
     salon: "Salon",
+    devis: "Devis",
     autre: "Autre"
   };
 
