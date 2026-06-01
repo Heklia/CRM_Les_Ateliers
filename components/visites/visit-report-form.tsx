@@ -172,7 +172,13 @@ export function VisitReportForm({
         </select>
       </label>
 
-      <Field label="Date de visite" name="visite_date" required type="datetime-local" />
+      <Field
+        defaultValue={getCurrentDateTimeLocal()}
+        label="Date de visite"
+        name="visite_date"
+        required
+        type="datetime-local"
+      />
 
       <label className="block text-sm font-medium">
         Type de contact
@@ -327,4 +333,11 @@ function toInterestValue(probability?: number | null) {
   if ((probability ?? 0) >= 70) return "chaud";
   if ((probability ?? 0) >= 35) return "tiede";
   return "froid";
+}
+
+function getCurrentDateTimeLocal() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60 * 1000);
+  return local.toISOString().slice(0, 16);
 }
