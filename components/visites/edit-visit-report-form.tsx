@@ -22,9 +22,17 @@ type ContactOption = {
   job_title: string | null;
 };
 
+type OpportunityOption = {
+  id: string;
+  prospect_id: string;
+  title: string;
+  stage: string;
+};
+
 type VisitValue = {
   id: string;
   prospectId: string;
+  opportunityId: string | null;
   contactId: string | null;
   visitDate: string;
   type: string;
@@ -54,19 +62,26 @@ const nextActionValues = ["appel", "email", "visite_terrain", "salon", "autre"] 
 
 export function EditVisitReportForm({
   contacts,
+  opportunities,
   prospects,
   visit
 }: {
   contacts: ContactOption[];
+  opportunities: OpportunityOption[];
   prospects: ProspectOption[];
   visit: VisitValue;
 }) {
   const [state, formAction] = useFormState(updateVisitReport, initialState);
   const [selectedProspectId, setSelectedProspectId] = useState(visit.prospectId);
   const [selectedContactId, setSelectedContactId] = useState(visit.contactId ?? "");
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState(visit.opportunityId ?? "");
   const prospectContacts = useMemo(
     () => contacts.filter((contact) => contact.prospect_id === selectedProspectId),
     [contacts, selectedProspectId]
+  );
+  const prospectOpportunities = useMemo(
+    () => opportunities.filter((opportunity) => opportunity.prospect_id === selectedProspectId),
+    [opportunities, selectedProspectId]
   );
 
   return (
@@ -90,6 +105,7 @@ export function EditVisitReportForm({
           onChange={(event) => {
             setSelectedProspectId(event.target.value);
             setSelectedContactId("");
+            setSelectedOpportunityId("");
           }}
           required
           value={selectedProspectId}
@@ -129,6 +145,23 @@ export function EditVisitReportForm({
           <Field label="Email" name="new_contact_email" type="email" />
         </div>
       ) : null}
+
+      <label className="block text-sm font-medium">
+        Opportunite liee
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          name="opportunite_id"
+          onChange={(event) => setSelectedOpportunityId(event.target.value)}
+          value={selectedOpportunityId}
+        >
+          <option value="">Aucune opportunite</option>
+          {prospectOpportunities.map((opportunity) => (
+            <option key={opportunity.id} value={opportunity.id}>
+              {opportunity.title}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <Field
         defaultValue={toDateTimeLocal(visit.visitDate)}

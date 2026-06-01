@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarPlus, Pencil } from "lucide-react";
 import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
+import { ProspectOpportunitiesPanel } from "@/components/prospects/prospect-opportunities-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getCurrentProfile } from "@/lib/auth/roles";
-import { segmentLabels, statusLabels } from "@/lib/constants";
+import { opportunityStages, segmentLabels, statusLabels } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
-import type { ProspectStatus, SegmentCode } from "@/lib/types";
+import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
 
 type ProspectRow = {
   id: string;
@@ -40,6 +41,16 @@ type VisitRow = {
   resume: string;
 };
 
+type OpportunityRow = {
+  id: string;
+  prospect_id: string;
+  title: string;
+  stage: string;
+  estimated_value: number | null;
+  probability: number;
+  updated_at: string;
+};
+
 export default async function ProspectDetailPage({
   params
 }: {
@@ -52,7 +63,13 @@ export default async function ProspectDetailPage({
     redirect("/login");
   }
 
-  const [{ data: prospect }, { data: segments }, { data: contacts }, { data: visits }] =
+  const [
+    { data: prospect },
+    { data: segments },
+    { data: contacts },
+    { data: visits },
+    { data: opportunities }
+  ] =
     await Promise.all([
       supabase
         .from("prospects")
@@ -69,7 +86,12 @@ export default async function ProspectDetailPage({
         .from("visites")
         .select("id, visite_date, type, resume")
         .eq("prospect_id", params.id)
-        .order("visite_date", { ascending: false })
+        .order("visite_date", { ascending: false }),
+      supabase
+        .from("opportunites")
+        .select("id, prospect_id, title, stage, estimated_value, probability, updated_at")
+        .eq("prospect_id", params.id)
+        .order("updated_at", { ascending: false })
     ]);
 
   if (!prospect) {
@@ -80,6 +102,7 @@ export default async function ProspectDetailPage({
   const segmentRows = (segments ?? []) as SegmentRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const visitRows = (visits ?? []) as VisitRow[];
+  const opportunityRows = (opportunities ?? []) as OpportunityRow[];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
   const segmentCode = (segment?.code ?? "agencements_decoratifs") as SegmentCode;
   const contactItems = contactRows.map((contact) => ({
@@ -88,6 +111,15 @@ export default async function ProspectDetailPage({
     jobTitle: contact.job_title,
     phone: contact.phone,
     email: contact.email
+  }));
+  const opportunityItems = opportunityRows.map((opportunity) => ({
+    id: opportunity.id,
+    prospectId: opportunity.prospect_id,
+    title: opportunity.title,
+    stage: toOpportunityStage(opportunity.stage),
+    estimatedValue: opportunity.estimated_value,
+    probability: opportunity.probability,
+    updatedAt: opportunity.updated_at
   }));
 
   return (
@@ -126,6 +158,11 @@ export default async function ProspectDetailPage({
 
         <ProspectContactsTabs contacts={contactItems} prospectId={prospectRow.id} />
 
+        <ProspectOpportunitiesPanel
+          opportunities={opportunityItems}
+          prospectId={prospectRow.id}
+        />
+
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Historique des visites</h2>
@@ -155,6 +192,12 @@ export default async function ProspectDetailPage({
       </section>
     </main>
   );
+}
+
+function toOpportunityStage(value: string): OpportunityStage {
+  return opportunityStages.includes(value as OpportunityStage)
+    ? (value as OpportunityStage)
+    : "prospect_identifie";
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

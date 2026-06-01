@@ -10,6 +10,7 @@ import { scopeByCommercial } from "@/lib/supabase/role-filters";
 type VisitRow = {
   id: string;
   prospect_id: string;
+  opportunite_id: string | null;
   visite_date: string;
   type: string;
   personnes_rencontrees: string | null;
@@ -41,6 +42,13 @@ type ContactRow = {
   job_title: string | null;
 };
 
+type OpportunityRow = {
+  id: string;
+  prospect_id: string;
+  title: string;
+  stage: string;
+};
+
 export default async function EditVisitPage({
   params
 }: {
@@ -53,10 +61,10 @@ export default async function EditVisitPage({
     redirect("/login");
   }
 
-  const [{ data: visit }, { data: prospects }, { data: contacts }] = await Promise.all([
+  const [{ data: visit }, { data: prospects }, { data: contacts }, { data: opportunities }] = await Promise.all([
     supabase
       .from("visites")
-      .select("id, prospect_id, contact_id, commercial_id, visite_date, type, personnes_rencontrees, besoins, freins, application_envisagee, matiere_procede, budget_estime, delai_projet, niveau_interet, prochaine_etape, prochaine_relance_at, commentaire")
+      .select("id, prospect_id, opportunite_id, contact_id, commercial_id, visite_date, type, personnes_rencontrees, besoins, freins, application_envisagee, matiere_procede, budget_estime, delai_projet, niveau_interet, prochaine_etape, prochaine_relance_at, commentaire")
       .eq("id", params.id)
       .single(),
     scopeByCommercial(
@@ -72,6 +80,13 @@ export default async function EditVisitPage({
         .select("id, prospect_id, first_name, last_name, job_title, commercial_id")
         .order("is_primary", { ascending: false }),
       profile
+    ),
+    scopeByCommercial(
+      supabase
+        .from("opportunites")
+        .select("id, prospect_id, title, stage, commercial_id")
+        .order("updated_at", { ascending: false }),
+      profile
     )
   ]);
 
@@ -82,6 +97,7 @@ export default async function EditVisitPage({
   const visitRow = visit as VisitRow;
   const prospectRows = (prospects ?? []) as ProspectRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
+  const opportunityRows = (opportunities ?? []) as OpportunityRow[];
   const currentProspect = prospectRows.find((prospect) => prospect.id === visitRow.prospect_id);
 
   return (
@@ -102,10 +118,12 @@ export default async function EditVisitPage({
 
       <EditVisitReportForm
         contacts={contactRows}
+        opportunities={opportunityRows}
         prospects={prospectRows}
         visit={{
           id: visitRow.id,
           prospectId: visitRow.prospect_id,
+          opportunityId: visitRow.opportunite_id,
           contactId: visitRow.contact_id,
           visitDate: visitRow.visite_date,
           type: visitRow.type,

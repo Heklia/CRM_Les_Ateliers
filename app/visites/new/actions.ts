@@ -90,8 +90,15 @@ export async function createVisitReport(
     return { error: contact.error };
   }
 
+  const opportunity = await resolveActionOpportunity(supabase, formData, validatedProspectId);
+
+  if (!opportunity.ok) {
+    return { error: opportunity.error };
+  }
+
   const { data: visit, error: visitError } = await supabase.from("visites").insert({
     prospect_id: validatedProspectId,
+    opportunite_id: opportunity.opportunityId,
     contact_id: contact.contactId,
     commercial_id: prospect.commercial_id,
     visite_date: validatedVisitDate,
@@ -136,6 +143,7 @@ export async function createVisitReport(
   if (validatedProspectStatus !== "perdu") {
     const { error: actionError } = await supabase.from("actions_suivantes").insert({
       prospect_id: validatedProspectId,
+      opportunite_id: opportunity.opportunityId,
       visite_id: visit.id,
       commercial_id: prospect.commercial_id,
       type: toFollowUpType(validatedNextActions),
@@ -186,6 +194,31 @@ function getContactTypeLabel(type: (typeof contactTypes)[number]) {
   };
 
   return labels[type];
+}
+
+async function resolveActionOpportunity(
+  supabase: any,
+  formData: FormData,
+  prospectId: string
+) {
+  const opportunityId = optionalText(formData, "opportunite_id");
+
+  if (!opportunityId) {
+    return { ok: true as const, opportunityId: null };
+  }
+
+  const { data: opportunity, error } = await supabase
+    .from("opportunites")
+    .select("id")
+    .eq("id", opportunityId)
+    .eq("prospect_id", prospectId)
+    .single();
+
+  if (error || !opportunity) {
+    return { ok: false as const, error: "L'opportunite selectionnee n'appartient pas au prospect." };
+  }
+
+  return { ok: true as const, opportunityId: opportunity.id };
 }
 
 async function resolveActionContact(

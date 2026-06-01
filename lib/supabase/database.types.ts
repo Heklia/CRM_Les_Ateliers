@@ -97,6 +97,7 @@ export type Database = {
         Row: {
           id: string;
           prospect_id: string;
+          opportunite_id: string | null;
           contact_id: string | null;
           commercial_id: string;
           visite_date: string;
