@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 import {
   normalizeOptionalWebsite,
   optionalEmail,
-  optionalNonNegativeNumber,
-  optionalScaleNumber,
   optionalText,
   requiredEnum,
   requiredText
@@ -21,8 +19,6 @@ const segmentCodes = [
   "structures_mobilier",
   "usinage_3d_prototypage_rotomoulage"
 ] as const;
-
-const projectTimelines = ["immediat", "moins_3_mois", "moins_6_mois", "plus_6_mois", "inconnu"] as const;
 
 export async function updateProspect(
   _previousState: UpdateProspectState,
@@ -44,11 +40,6 @@ export async function updateProspect(
   const contactName = requiredText(formData, "contact_name", "Nom du contact");
   const website = normalizeOptionalWebsite(formData, "website");
   const email = optionalEmail(formData, "email", "Email");
-  const estimatedPotential = optionalNonNegativeNumber(formData, "estimated_potential", "Potentiel estime");
-  const projectTimeline = requiredEnum(formData, "project_timeline", "Delai projet", projectTimelines);
-  const capacityFit = optionalScaleNumber(formData, "capacity_fit", "Adequation capacites");
-  const recurrencePotential = optionalScaleNumber(formData, "recurrence_potential", "Recurrence potentielle");
-  const needMaturity = optionalScaleNumber(formData, "need_maturity", "Maturite du besoin");
 
   if (!prospectId.ok) return { error: prospectId.error };
   if (!companyName.ok) return { error: companyName.error };
@@ -56,11 +47,6 @@ export async function updateProspect(
   if (!contactName.ok) return { error: contactName.error };
   if (!website.ok) return { error: website.error };
   if (!email.ok) return { error: email.error };
-  if (!estimatedPotential.ok) return { error: estimatedPotential.error };
-  if (!projectTimeline.ok) return { error: projectTimeline.error };
-  if (!capacityFit.ok) return { error: capacityFit.error };
-  if (!recurrencePotential.ok) return { error: recurrencePotential.error };
-  if (!needMaturity.ok) return { error: needMaturity.error };
 
   const { data: existingProspect, error: prospectReadError } = await supabase
     .from("prospects")
@@ -92,11 +78,6 @@ export async function updateProspect(
       city: optionalText(formData, "city"),
       postal_code: optionalText(formData, "postal_code"),
       website: website.data,
-      estimated_potential: estimatedPotential.data,
-      project_timeline: projectTimeline.data,
-      capacity_fit: capacityFit.data,
-      recurrence_potential: recurrencePotential.data,
-      need_maturity: needMaturity.data,
       notes: optionalText(formData, "notes")
     })
     .eq("id", prospectId.data);

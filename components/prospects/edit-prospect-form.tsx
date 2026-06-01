@@ -18,12 +18,7 @@ type EditProspectFormProps = {
     city: string | null;
     postalCode: string | null;
     website: string | null;
-    estimatedPotential: number | null;
     notes: string | null;
-    projectTimeline: string;
-    capacityFit: number | null;
-    recurrencePotential: number | null;
-    needMaturity: number | null;
   };
   contact: {
     id: string | null;
@@ -98,55 +93,6 @@ export function EditProspectForm({ prospect, contact }: EditProspectFormProps) {
       />
       <Field defaultValue={contact.phone ?? ""} label="Telephone" name="phone" />
       <Field defaultValue={contact.email ?? ""} label="Email" name="email" type="email" />
-      <Field
-        defaultValue={prospect.estimatedPotential ?? ""}
-        label="Potentiel estime"
-        min="0"
-        name="estimated_potential"
-        step="100"
-        type="number"
-      />
-
-      <label className="block text-sm font-medium">
-        Delai projet
-        <select
-          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          defaultValue={prospect.projectTimeline}
-          name="project_timeline"
-        >
-          <option value="inconnu">Inconnu</option>
-          <option value="immediat">Immediat</option>
-          <option value="moins_3_mois">Moins de 3 mois</option>
-          <option value="moins_6_mois">Moins de 6 mois</option>
-          <option value="plus_6_mois">Plus de 6 mois</option>
-        </select>
-      </label>
-
-      <Field
-        defaultValue={prospect.capacityFit ?? ""}
-        label="Adequation capacites"
-        max="5"
-        min="1"
-        name="capacity_fit"
-        type="number"
-      />
-      <Field
-        defaultValue={prospect.recurrencePotential ?? ""}
-        label="Recurrence potentielle"
-        max="5"
-        min="1"
-        name="recurrence_potential"
-        type="number"
-      />
-      <Field
-        defaultValue={prospect.needMaturity ?? ""}
-        label="Maturite du besoin"
-        max="5"
-        min="1"
-        name="need_maturity"
-        type="number"
-      />
-
       <div className="lg:col-span-2">
         <Field
           defaultValue={prospect.notes ?? ""}

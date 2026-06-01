@@ -139,11 +139,10 @@ export function ProspectsScreen({
 
         <div className="flex items-center justify-between border-b border-border px-4 py-3 text-sm text-muted">
           <span>{filteredProspects.length} prospect(s)</span>
-          <span>Potentiel visible : {formatCurrency(totalPotential(filteredProspects))}</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1140px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="text-xs uppercase text-muted">
               <tr className="border-b border-border">
                 <th className="px-4 py-3">Entreprise</th>
@@ -153,7 +152,6 @@ export function ProspectsScreen({
                 <th>Statut</th>
                 <th>Pipeline</th>
                 <th>Score</th>
-                <th className="text-right">Potentiel estime</th>
                 <th>Derniere visite</th>
                 <th className="text-right">Action</th>
               </tr>
@@ -187,9 +185,6 @@ export function ProspectsScreen({
                     <StatusPill tone={getPriorityTone(getProspectScore(prospect))}>
                       {getProspectScore(prospect)}/100
                     </StatusPill>
-                  </td>
-                  <td className="text-right font-medium">
-                    {formatCurrency(prospect.estimatedPotential)}
                   </td>
                   <td className="text-muted">
                     {prospect.lastVisit ? formatDate(prospect.lastVisit) : "A planifier"}
@@ -228,18 +223,6 @@ function getProspectScore(prospect: ProspectListItem) {
     recurrencePotential: prospect.recurrencePotential,
     needMaturity: prospect.needMaturity
   });
-}
-
-function totalPotential(items: ProspectListItem[]) {
-  return items.reduce((sum, prospect) => sum + prospect.estimatedPotential, 0);
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("fr-FR", {
-    currency: "EUR",
-    maximumFractionDigits: 0,
-    style: "currency"
-  }).format(value);
 }
 
 function formatDate(value: string) {

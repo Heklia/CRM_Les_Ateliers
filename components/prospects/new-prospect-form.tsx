@@ -75,54 +75,6 @@ export function NewProspectForm() {
         type="email"
         placeholder="contact@entreprise.fr"
       />
-      <Field
-        label="Potentiel estime"
-        min="0"
-        name="estimated_potential"
-        placeholder="25000"
-        step="100"
-        type="number"
-      />
-
-      <label className="block text-sm font-medium">
-        Delai projet
-        <select
-          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          name="project_timeline"
-        >
-          <option value="inconnu">Inconnu</option>
-          <option value="immediat">Immediat</option>
-          <option value="moins_3_mois">Moins de 3 mois</option>
-          <option value="moins_6_mois">Moins de 6 mois</option>
-          <option value="plus_6_mois">Plus de 6 mois</option>
-        </select>
-      </label>
-
-      <Field
-        label="Adequation capacites"
-        max="5"
-        min="1"
-        name="capacity_fit"
-        placeholder="1 a 5"
-        type="number"
-      />
-      <Field
-        label="Recurrence potentielle"
-        max="5"
-        min="1"
-        name="recurrence_potential"
-        placeholder="1 a 5"
-        type="number"
-      />
-      <Field
-        label="Maturite du besoin"
-        max="5"
-        min="1"
-        name="need_maturity"
-        placeholder="1 a 5"
-        type="number"
-      />
-
       <div className="lg:col-span-2">
         <Field
           label="Commentaire libre"

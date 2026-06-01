@@ -15,7 +15,6 @@ type ProspectRow = {
   city: string | null;
   status: string;
   interest_level: number | null;
-  estimated_potential: number | null;
   notes: string | null;
 };
 
@@ -55,7 +54,7 @@ export default async function ProspectDetailPage({
     await Promise.all([
       supabase
         .from("prospects")
-        .select("id, segment_id, company_name, city, status, interest_level, estimated_potential, notes")
+        .select("id, segment_id, company_name, city, status, interest_level, notes")
         .eq("id", params.id)
         .single(),
       supabase.from("segments").select("id, code"),
@@ -119,10 +118,6 @@ export default async function ProspectDetailPage({
               label="Interet"
               value={prospectRow.interest_level ? `${prospectRow.interest_level}/5` : "Non renseigne"}
             />
-            <InfoRow
-              label="Potentiel"
-              value={formatCurrency(prospectRow.estimated_potential ?? 0)}
-            />
             <InfoRow label="Commentaire" value={prospectRow.notes ?? "Aucun commentaire"} />
           </dl>
         </div>
@@ -165,14 +160,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <dd className="text-right font-medium">{value}</dd>
     </div>
   );
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("fr-FR", {
-    currency: "EUR",
-    maximumFractionDigits: 0,
-    style: "currency"
-  }).format(value);
 }
 
 function formatDate(value: string) {

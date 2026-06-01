@@ -16,12 +16,7 @@ type ProspectRow = {
   city: string | null;
   postal_code: string | null;
   website: string | null;
-  estimated_potential: number | null;
   notes: string | null;
-  project_timeline: string;
-  capacity_fit: number | null;
-  recurrence_potential: number | null;
-  need_maturity: number | null;
 };
 
 type SegmentRow = {
@@ -53,7 +48,7 @@ export default async function EditProspectPage({
   const [{ data: prospect }, { data: segments }, { data: contacts }] = await Promise.all([
     supabase
       .from("prospects")
-      .select("id, segment_id, company_name, sub_segment, address_line1, city, postal_code, website, estimated_potential, notes, project_timeline, capacity_fit, recurrence_potential, need_maturity")
+      .select("id, segment_id, company_name, sub_segment, address_line1, city, postal_code, website, notes")
       .eq("id", params.id)
       .single(),
     supabase.from("segments").select("id, code"),
@@ -107,12 +102,7 @@ export default async function EditProspectPage({
           city: prospectRow.city,
           postalCode: prospectRow.postal_code,
           website: prospectRow.website,
-          estimatedPotential: prospectRow.estimated_potential,
-          notes: prospectRow.notes,
-          projectTimeline: prospectRow.project_timeline,
-          capacityFit: prospectRow.capacity_fit,
-          recurrencePotential: prospectRow.recurrence_potential,
-          needMaturity: prospectRow.need_maturity
+          notes: prospectRow.notes
         }}
       />
     </main>
