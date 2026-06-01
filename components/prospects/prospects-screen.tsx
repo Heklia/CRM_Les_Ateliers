@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Upload } from "lucide-react";
+import { Pencil, Plus, Search, Upload } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -143,7 +143,7 @@ export function ProspectsScreen({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-left text-sm">
+          <table className="w-full min-w-[1140px] text-left text-sm">
             <thead className="text-xs uppercase text-muted">
               <tr className="border-b border-border">
                 <th className="px-4 py-3">Entreprise</th>
@@ -155,6 +155,7 @@ export function ProspectsScreen({
                 <th>Score</th>
                 <th className="text-right">Potentiel estime</th>
                 <th>Derniere visite</th>
+                <th className="text-right">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -192,6 +193,15 @@ export function ProspectsScreen({
                   </td>
                   <td className="text-muted">
                     {prospect.lastVisit ? formatDate(prospect.lastVisit) : "A planifier"}
+                  </td>
+                  <td className="text-right">
+                    <Link
+                      aria-label={`Modifier ${prospect.company}`}
+                      className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-white text-muted hover:bg-background hover:text-foreground"
+                      href={`/prospects/${prospect.id}/edit`}
+                    >
+                      <Pencil size={16} />
+                    </Link>
                   </td>
                 </tr>
               ))}

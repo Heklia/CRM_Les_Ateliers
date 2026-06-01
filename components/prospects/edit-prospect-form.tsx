@@ -1,0 +1,175 @@
+"use client";
+
+import { useFormState, useFormStatus } from "react-dom";
+import { Save } from "lucide-react";
+import { updateProspect } from "@/app/prospects/[id]/edit/actions";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
+import { segmentLabels } from "@/lib/constants";
+import type { SegmentCode } from "@/lib/types";
+
+type EditProspectFormProps = {
+  prospect: {
+    id: string;
+    companyName: string;
+    segmentCode: SegmentCode;
+    subSegment: string | null;
+    address: string | null;
+    city: string | null;
+    postalCode: string | null;
+    website: string | null;
+    estimatedPotential: number | null;
+    notes: string | null;
+    projectTimeline: string;
+    capacityFit: number | null;
+    recurrencePotential: number | null;
+    needMaturity: number | null;
+  };
+  contact: {
+    id: string | null;
+    name: string;
+    jobTitle: string | null;
+    phone: string | null;
+    email: string | null;
+  };
+};
+
+const initialState: { error?: string } = {};
+
+export function EditProspectForm({ prospect, contact }: EditProspectFormProps) {
+  const [state, formAction] = useFormState(updateProspect, initialState);
+
+  return (
+    <form
+      action={formAction}
+      className="grid gap-6 rounded-lg border border-border bg-surface p-5 shadow-soft lg:grid-cols-2"
+    >
+      <input name="prospect_id" type="hidden" value={prospect.id} />
+      <input name="contact_id" type="hidden" value={contact.id ?? ""} />
+
+      {state.error ? (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 lg:col-span-2">
+          {state.error}
+        </p>
+      ) : null}
+
+      <Field
+        defaultValue={prospect.companyName}
+        label="Nom entreprise"
+        name="company_name"
+        required
+      />
+
+      <label className="block text-sm font-medium">
+        Segment marche
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          defaultValue={prospect.segmentCode}
+          name="segment_code"
+          required
+        >
+          {Object.entries(segmentLabels).map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <Field
+        defaultValue={prospect.subSegment ?? ""}
+        label="Sous-segment"
+        name="sub_segment"
+      />
+      <Field defaultValue={prospect.address ?? ""} label="Adresse" name="address" />
+      <Field defaultValue={prospect.city ?? ""} label="Ville" name="city" />
+      <Field defaultValue={prospect.postalCode ?? ""} label="Code postal" name="postal_code" />
+      <Field defaultValue={prospect.website ?? ""} label="Site web" name="website" />
+      <Field
+        defaultValue={contact.name}
+        label="Nom du contact"
+        name="contact_name"
+        required
+      />
+      <Field
+        defaultValue={contact.jobTitle ?? ""}
+        label="Fonction du contact"
+        name="contact_job_title"
+      />
+      <Field defaultValue={contact.phone ?? ""} label="Telephone" name="phone" />
+      <Field defaultValue={contact.email ?? ""} label="Email" name="email" type="email" />
+      <Field
+        defaultValue={prospect.estimatedPotential ?? ""}
+        label="Potentiel estime"
+        min="0"
+        name="estimated_potential"
+        step="100"
+        type="number"
+      />
+
+      <label className="block text-sm font-medium">
+        Delai projet
+        <select
+          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+          defaultValue={prospect.projectTimeline}
+          name="project_timeline"
+        >
+          <option value="inconnu">Inconnu</option>
+          <option value="immediat">Immediat</option>
+          <option value="moins_3_mois">Moins de 3 mois</option>
+          <option value="moins_6_mois">Moins de 6 mois</option>
+          <option value="plus_6_mois">Plus de 6 mois</option>
+        </select>
+      </label>
+
+      <Field
+        defaultValue={prospect.capacityFit ?? ""}
+        label="Adequation capacites"
+        max="5"
+        min="1"
+        name="capacity_fit"
+        type="number"
+      />
+      <Field
+        defaultValue={prospect.recurrencePotential ?? ""}
+        label="Recurrence potentielle"
+        max="5"
+        min="1"
+        name="recurrence_potential"
+        type="number"
+      />
+      <Field
+        defaultValue={prospect.needMaturity ?? ""}
+        label="Maturite du besoin"
+        max="5"
+        min="1"
+        name="need_maturity"
+        type="number"
+      />
+
+      <div className="lg:col-span-2">
+        <Field
+          defaultValue={prospect.notes ?? ""}
+          label="Commentaire libre"
+          name="notes"
+          textarea
+        />
+      </div>
+
+      <div className="sticky bottom-20 z-20 flex items-center justify-end gap-3 bg-surface/95 py-2 backdrop-blur md:static md:bg-transparent md:py-0 lg:col-span-2">
+        <SubmitButton />
+      </div>
+    </form>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button className="w-full md:w-auto" disabled={pending} type="submit">
+      <Save size={16} />
+      {pending ? "Enregistrement..." : "Enregistrer les modifications"}
+    </Button>
+  );
+}
