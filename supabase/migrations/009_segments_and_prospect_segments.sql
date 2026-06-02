@@ -32,6 +32,16 @@ $$;
 alter table public.segments
   drop constraint if exists segments_code_check;
 
+alter table public.segments enable row level security;
+
+drop policy if exists segments_select_authenticated on public.segments;
+
+create policy segments_select_authenticated
+on public.segments
+for select
+to authenticated
+using (true);
+
 insert into public.segments (code, name, description, is_active)
 values
   ('bardage_decoratif', 'Bardage decoratif', null, true),

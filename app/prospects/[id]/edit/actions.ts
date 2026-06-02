@@ -55,20 +55,17 @@ export async function updateProspect(
     return { error: "Prospect introuvable ou non autorise." };
   }
 
-  const { data: segment, error: segmentError } = await supabase
-    .from("segments")
-    .select("id")
-    .eq("code", selectedSegmentCodes[0])
-    .single();
+  const selectedSegmentsResult = await getSupabaseSegments(supabase, selectedSegmentCodes);
 
-  if (segmentError || !segment) {
-    return { error: "Segment introuvable dans Supabase." };
+  if (!selectedSegmentsResult.ok) {
+    return { error: selectedSegmentsResult.error };
   }
 
+  const primarySegment = selectedSegmentsResult.segments[0];
   const prospectsTable = supabase.from("prospects") as any;
   const { error: updateError } = await prospectsTable
     .update({
-      segment_id: segment.id,
+      segment_id: primarySegment.id,
       company_name: companyName.data,
       sub_segment: optionalText(formData, "sub_segment"),
       address_line1: optionalText(formData, "address"),
@@ -83,20 +80,13 @@ export async function updateProspect(
     return { error: "Impossible de modifier le prospect." };
   }
 
-  const { data: selectedSegments, error: selectedSegmentsError } = await supabase
-    .from("segments")
-    .select("id, code")
-    .in("code", selectedSegmentCodes);
-
-  if (!selectedSegmentsError) {
-    await supabase.from("prospect_segments").delete().eq("prospect_id", prospectId.data);
-    await supabase.from("prospect_segments").insert(
-      (selectedSegments ?? []).map((item: { id: string }) => ({
-        prospect_id: prospectId.data,
-        segment_id: item.id
-      }))
-    );
-  }
+  await supabase.from("prospect_segments").delete().eq("prospect_id", prospectId.data);
+  await supabase.from("prospect_segments").insert(
+    selectedSegmentsResult.segments.map((item) => ({
+      prospect_id: prospectId.data,
+      segment_id: item.id
+    }))
+  );
 
   const { firstName, lastName } = splitContactName(contactName.data);
   const contactId = optionalText(formData, "contact_id");
@@ -124,6 +114,30 @@ export async function updateProspect(
   }
 
   redirect(`/prospects/${prospectId.data}`);
+}
+
+async function getSupabaseSegments(supabase: any, selectedSegmentCodes: SegmentCode[]) {
+  const { data, error } = await supabase
+    .from("segments")
+    .select("id, code")
+    .in("code", selectedSegmentCodes);
+
+  if (error) {
+    return { ok: false as const, error: `Impossible de lire les segments Supabase : ${error.message}` };
+  }
+
+  const rows = (data ?? []) as { id: string; code: string }[];
+  const foundCodes = new Set(rows.map((segment) => segment.code));
+  const missingCodes = selectedSegmentCodes.filter((code) => !foundCodes.has(code));
+
+  if (missingCodes.length) {
+    return {
+      ok: false as const,
+      error: `Segment introuvable ou non visible dans Supabase : ${missingCodes.join(", ")}. Relancez la migration 009 mise a jour.`
+    };
+  }
+
+  return { ok: true as const, segments: rows };
 }
 
 function getSelectedSegmentCodes(formData: FormData) {

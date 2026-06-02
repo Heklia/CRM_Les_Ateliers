@@ -53,22 +53,19 @@ export async function createProspect(
     return { error: profile.error };
   }
 
-  const { data: segment, error: segmentError } = await supabase
-    .from("segments")
-    .select("id")
-    .eq("code", selectedSegmentCodes[0])
-    .single();
+  const selectedSegmentsResult = await getSupabaseSegments(supabase, selectedSegmentCodes);
 
-  if (segmentError || !segment) {
-    return { error: "Segment introuvable dans Supabase." };
+  if (!selectedSegmentsResult.ok) {
+    return { error: selectedSegmentsResult.error };
   }
 
+  const primarySegment = selectedSegmentsResult.segments[0];
   const { firstName, lastName } = splitContactName(validatedContactName);
 
   const { data: createdProspectId, error: createError } = await supabase.rpc("create_prospect_with_contact", {
     prospect_payload: {
       commercial_id: user.id,
-      segment_id: segment.id,
+      segment_id: primarySegment.id,
       company_name: validatedCompanyName,
       sub_segment: optionalText(formData, "sub_segment"),
       address_line1: optionalText(formData, "address"),
@@ -99,14 +96,9 @@ export async function createProspect(
     return { error: "Impossible de creer le prospect et son contact." };
   }
 
-  const { data: selectedSegments, error: selectedSegmentsError } = await supabase
-    .from("segments")
-    .select("id, code")
-    .in("code", selectedSegmentCodes);
-
-  if (!selectedSegmentsError && createdProspectId) {
+  if (createdProspectId) {
     await supabase.from("prospect_segments").insert(
-      (selectedSegments ?? []).map((item: { id: string }) => ({
+      selectedSegmentsResult.segments.map((item) => ({
         prospect_id: createdProspectId,
         segment_id: item.id
       }))
@@ -114,6 +106,30 @@ export async function createProspect(
   }
 
   redirect("/prospects");
+}
+
+async function getSupabaseSegments(supabase: any, selectedSegmentCodes: SegmentCode[]) {
+  const { data, error } = await supabase
+    .from("segments")
+    .select("id, code")
+    .in("code", selectedSegmentCodes);
+
+  if (error) {
+    return { ok: false as const, error: `Impossible de lire les segments Supabase : ${error.message}` };
+  }
+
+  const rows = (data ?? []) as { id: string; code: string }[];
+  const foundCodes = new Set(rows.map((segment) => segment.code));
+  const missingCodes = selectedSegmentCodes.filter((code) => !foundCodes.has(code));
+
+  if (missingCodes.length) {
+    return {
+      ok: false as const,
+      error: `Segment introuvable ou non visible dans Supabase : ${missingCodes.join(", ")}. Relancez la migration 009 mise a jour.`
+    };
+  }
+
+  return { ok: true as const, segments: rows };
 }
 
 function getSelectedSegmentCodes(formData: FormData) {
