@@ -1,33 +1,6 @@
 -- Migration 009 - nouveaux segments + plusieurs segments par prospect.
--- Ce fichier est volontairement autonome et idempotent : il peut etre relance
--- dans le SQL Editor Supabase si une execution precedente a echoue au milieu.
-
-create or replace function public.current_app_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select role
-  from public.users
-  where id = auth.uid()
-$$;
-
-create or replace function public.can_access_commercial(target_commercial_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select
-    auth.uid() is not null
-    and (
-      target_commercial_id = auth.uid()
-      or public.current_app_role() in ('admin', 'manager')
-    )
-$$;
+-- Version simplifiee pour le SQL Editor Supabase : aucun bloc $$.
+-- Le fichier peut etre relance si une execution precedente a echoue au milieu.
 
 alter table public.segments
   drop constraint if exists segments_code_check;
@@ -80,7 +53,15 @@ using (
     select 1
     from public.prospects p
     where p.id = prospect_segments.prospect_id
-      and public.can_access_commercial(p.commercial_id)
+      and (
+        p.commercial_id = auth.uid()
+        or exists (
+          select 1
+          from public.users u
+          where u.id = auth.uid()
+            and u.role in ('admin', 'manager')
+        )
+      )
   )
 );
 
@@ -92,7 +73,15 @@ with check (
     select 1
     from public.prospects p
     where p.id = prospect_segments.prospect_id
-      and public.can_access_commercial(p.commercial_id)
+      and (
+        p.commercial_id = auth.uid()
+        or exists (
+          select 1
+          from public.users u
+          where u.id = auth.uid()
+            and u.role in ('admin', 'manager')
+        )
+      )
   )
 );
 
@@ -104,7 +93,15 @@ using (
     select 1
     from public.prospects p
     where p.id = prospect_segments.prospect_id
-      and public.can_access_commercial(p.commercial_id)
+      and (
+        p.commercial_id = auth.uid()
+        or exists (
+          select 1
+          from public.users u
+          where u.id = auth.uid()
+            and u.role in ('admin', 'manager')
+        )
+      )
   )
 )
 with check (
@@ -112,7 +109,15 @@ with check (
     select 1
     from public.prospects p
     where p.id = prospect_segments.prospect_id
-      and public.can_access_commercial(p.commercial_id)
+      and (
+        p.commercial_id = auth.uid()
+        or exists (
+          select 1
+          from public.users u
+          where u.id = auth.uid()
+            and u.role in ('admin', 'manager')
+        )
+      )
   )
 );
 
@@ -124,7 +129,15 @@ using (
     select 1
     from public.prospects p
     where p.id = prospect_segments.prospect_id
-      and public.can_access_commercial(p.commercial_id)
+      and (
+        p.commercial_id = auth.uid()
+        or exists (
+          select 1
+          from public.users u
+          where u.id = auth.uid()
+            and u.role in ('admin', 'manager')
+        )
+      )
   )
 );
 
