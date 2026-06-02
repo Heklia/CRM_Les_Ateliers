@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Flame, Save, Snowflake, ThermometerSun } from "lucide-react";
+import { Flame, History, Save, Snowflake, ThermometerSun } from "lucide-react";
 import { createVisitReport } from "@/app/visites/new/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -33,6 +33,15 @@ type OpportunityOption = {
   probability: number;
 };
 
+type PreviousAction = {
+  title: string;
+  date: string;
+  type: string;
+  summary: string | null;
+  comment: string | null;
+  contact: string | null;
+};
+
 const initialState: { error?: string } = {
   error: undefined
 };
@@ -48,12 +57,14 @@ export function VisitReportForm({
   initialOpportunityId = "",
   initialProspectId = "",
   opportunities,
+  previousAction,
   prospects
 }: {
   contacts: ContactOption[];
   initialOpportunityId?: string;
   initialProspectId?: string;
   opportunities: OpportunityOption[];
+  previousAction?: PreviousAction | null;
   prospects: ProspectOption[];
 }) {
   const [state, formAction] = useFormState(createVisitReport, initialState);
@@ -89,6 +100,8 @@ export function VisitReportForm({
           {state.error}
         </p>
       ) : null}
+
+      {previousAction ? <PreviousActionReminder previousAction={previousAction} /> : null}
 
       <label className="block text-sm font-medium">
         Prospect
@@ -312,6 +325,42 @@ export function VisitReportForm({
   );
 }
 
+function PreviousActionReminder({ previousAction }: { previousAction: PreviousAction }) {
+  return (
+    <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm lg:col-span-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-white text-amber-700">
+            <History size={18} />
+          </span>
+          <div>
+            <h2 className="font-semibold text-amber-950">Rappel de l'action precedente</h2>
+            <p className="mt-1 text-amber-900">
+              {formatActionType(previousAction.type)} - {formatDate(previousAction.date)}
+            </p>
+            {previousAction.contact ? (
+              <p className="mt-1 text-amber-900">{previousAction.contact}</p>
+            ) : null}
+          </div>
+        </div>
+        <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-amber-800">
+          {previousAction.title}
+        </span>
+      </div>
+
+      {previousAction.summary ? (
+        <p className="mt-3 rounded-md bg-white/70 p-3 text-amber-950">{previousAction.summary}</p>
+      ) : null}
+      {previousAction.comment ? (
+        <p className="mt-2 text-amber-900">
+          <span className="font-semibold">Commentaire : </span>
+          {previousAction.comment}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function SubmitButton() {
   const { pending } = useFormStatus();
 
@@ -339,4 +388,24 @@ function getCurrentDateTimeLocal() {
   const offset = now.getTimezoneOffset();
   const local = new Date(now.getTime() - offset * 60 * 1000);
   return local.toISOString().slice(0, 16);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(new Date(value));
+}
+
+function formatActionType(value: string) {
+  const labels: Record<string, string> = {
+    appel: "Appel",
+    email: "Email",
+    visite_terrain: "Visite terrain",
+    salon: "Salon",
+    autre: "Autre"
+  };
+
+  return labels[value] ?? value;
 }

@@ -223,7 +223,7 @@ export function DashboardScreen({
                   </div>
                   <a
                     className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white"
-                    href="/visites/new"
+                    href={buildFollowUpHref(followUp)}
                   >
                     <PhoneCall size={16} />
                     Traiter
@@ -334,6 +334,19 @@ export function DashboardScreen({
       </section>
     </main>
   );
+}
+
+function buildFollowUpHref(followUp: ReportingFollowUp) {
+  const params = new URLSearchParams({
+    follow_up_id: followUp.id,
+    prospect_id: followUp.prospectId
+  });
+
+  if (followUp.opportunityId) {
+    params.set("opportunite_id", followUp.opportunityId);
+  }
+
+  return `/visites/new?${params.toString()}`;
 }
 
 function createPeriodFilter(period: string) {

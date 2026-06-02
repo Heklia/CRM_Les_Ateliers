@@ -50,6 +50,11 @@ export type ReportingOpportunity = {
 
 export type ReportingFollowUp = {
   id: string;
+  prospectId: string;
+  opportunityId: string | null;
+  previousVisitId: string | null;
+  title: string;
+  description: string | null;
   company: string;
   commercial: string;
   dueAt: string;
@@ -124,8 +129,11 @@ type OpportunityRow = {
 type FollowUpRow = {
   id: string;
   prospect_id: string;
+  opportunite_id: string | null;
+  visite_id: string | null;
   commercial_id: string;
   title: string;
+  description: string | null;
   due_at: string;
   status: string;
   created_at: string;
@@ -162,7 +170,7 @@ export async function getReportingData(supabase: any) {
       .order("created_at", { ascending: false }),
     supabase
       .from("actions_suivantes")
-      .select("id, prospect_id, commercial_id, title, due_at, status, created_at, updated_at")
+      .select("id, prospect_id, opportunite_id, visite_id, commercial_id, title, description, due_at, status, created_at, updated_at")
       .order("due_at", { ascending: true })
   ]);
 
@@ -262,6 +270,11 @@ export async function getReportingData(supabase: any) {
 
     return {
       id: followUp.id,
+      prospectId: followUp.prospect_id,
+      opportunityId: followUp.opportunite_id,
+      previousVisitId: followUp.visite_id,
+      title: followUp.title,
+      description: followUp.description,
       company: prospect?.company_name ?? "Prospect",
       commercial: userById.get(followUp.commercial_id) ?? "Commercial",
       dueAt: followUp.due_at,
