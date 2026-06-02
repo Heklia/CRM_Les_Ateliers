@@ -203,7 +203,6 @@ export function VisitReportForm({
             name="besoins"
             onChange={(event) => setNeed(event.target.value)}
             placeholder="Besoin exprime ou observe"
-            required
             value={need}
           />
           <Field

@@ -199,7 +199,6 @@ export function EditVisitReportForm({
             defaultValue={visit.need}
             label="Besoin identifie"
             name="besoins"
-            required
           />
           <Field
             defaultValue={visit.budget ?? ""}

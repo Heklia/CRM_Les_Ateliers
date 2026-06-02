@@ -42,7 +42,7 @@ export async function updateVisitReport(
   const prospectId = requiredText(formData, "prospect_id", "Prospect");
   const visitDate = requiredDateTime(formData, "visite_date", "Date de visite");
   const contactType = requiredEnum(formData, "type", "Type de contact", contactTypes);
-  const need = requiredText(formData, "besoins", "Besoin identifie");
+  const need = optionalText(formData, "besoins");
   const nextActions = requiredEnum(formData, "prochaine_etape", "Prochaine action", nextActionTypes);
   const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
   const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
@@ -53,7 +53,6 @@ export async function updateVisitReport(
   if (!prospectId.ok) return { error: prospectId.error };
   if (!visitDate.ok) return { error: visitDate.error };
   if (!contactType.ok) return { error: contactType.error };
-  if (!need.ok) return { error: need.error };
   if (!nextActions.ok) return { error: nextActions.error };
   if (!interest.ok) return { error: interest.error };
   if (!prospectStatus.ok) return { error: prospectStatus.error };
@@ -98,7 +97,7 @@ export async function updateVisitReport(
     prospectId: prospectId.data,
     segmentId: prospect.segment_id,
     stage: prospectStatus.data === "perdu" ? "perdu" : "opportunite_detectee",
-    need: need.data,
+    need,
     budget: budget.data === null ? null : budget.data * 1000,
     projectDate: optionalText(formData, "delai_projet"),
     interest: interest.data
@@ -119,7 +118,7 @@ export async function updateVisitReport(
       type: contactType.data,
       personnes_rencontrees: optionalText(formData, "personnes_rencontrees"),
       resume: buildSummary(formData),
-      besoins: need.data,
+      besoins: need,
       freins: optionalText(formData, "freins"),
       application_envisagee: null,
       matiere_procede: optionalText(formData, "matiere_procede"),
@@ -180,7 +179,7 @@ function buildSummary(formData: FormData) {
   const matter = optionalText(formData, "matiere_procede");
   const need = String(formData.get("besoins") ?? "").trim();
 
-  return [need, matter].filter(Boolean).join(" | ");
+  return [need, matter].filter(Boolean).join(" | ") || "Action commerciale";
 }
 
 function getDefaultFollowUpDate(visitDate: string) {
@@ -215,7 +214,7 @@ async function resolveActionOpportunity(
     budget: number | null;
     commercialId: string;
     interest: keyof typeof interestMap;
-    need: string;
+    need: string | null;
     projectDate: string | null;
     prospectId: string;
     segmentId: string;
@@ -223,9 +222,18 @@ async function resolveActionOpportunity(
   }
 ) {
   const opportunityId = optionalText(formData, "opportunite_id");
+  const description = optionalText(formData, "freins");
+  const material = optionalText(formData, "matiere_procede");
+  const hasProjectDetail = Boolean(
+    context.need ||
+      description ||
+      material ||
+      context.budget !== null ||
+      context.projectDate
+  );
   const payload = {
-    title: context.need,
-    description: optionalText(formData, "freins"),
+    title: context.need ?? "Projet a qualifier",
+    description,
     estimated_value: context.budget,
     expected_close_date: context.projectDate,
     probability: interestMap[context.interest] * 20,
@@ -236,6 +244,10 @@ async function resolveActionOpportunity(
   };
 
   if (!opportunityId) {
+    if (!hasProjectDetail) {
+      return { ok: true as const, opportunityId: null };
+    }
+
     const { data: opportunity, error } = await supabase
       .from("opportunites")
       .insert({
@@ -256,7 +268,7 @@ async function resolveActionOpportunity(
 
   const { data: opportunity, error } = await supabase
     .from("opportunites")
-    .select("id")
+    .select("id, title")
     .eq("id", opportunityId)
     .eq("prospect_id", context.prospectId)
     .single();
@@ -265,9 +277,16 @@ async function resolveActionOpportunity(
     return { ok: false as const, error: "L'opportunite selectionnee n'appartient pas au prospect." };
   }
 
+  if (!hasProjectDetail) {
+    return { ok: true as const, opportunityId: opportunity.id };
+  }
+
   const { error: updateError } = await supabase
     .from("opportunites")
-    .update(payload)
+    .update({
+      ...payload,
+      title: context.need ?? opportunity.title
+    })
     .eq("id", opportunity.id);
 
   if (updateError) {
