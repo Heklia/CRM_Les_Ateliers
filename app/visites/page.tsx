@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Pencil, Plus } from "lucide-react";
+import { deleteVisitAction } from "@/app/visites/actions";
+import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getCurrentProfile } from "@/lib/auth/roles";
@@ -102,6 +104,13 @@ export default async function VisitesPage() {
                 >
                   <Pencil size={16} />
                 </Link>
+                <form action={deleteVisitAction}>
+                  <input name="visit_id" type="hidden" value={visit.id} />
+                  <DeleteSubmitButton
+                    confirmMessage="Supprimer definitivement cette action ?"
+                    label="Supprimer"
+                  />
+                </form>
               </div>
             </div>
           </article>

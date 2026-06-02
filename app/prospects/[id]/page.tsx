@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarPlus, Pencil } from "lucide-react";
+import { deleteProspect } from "@/app/prospects/[id]/actions";
 import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
 import { ProspectOpportunitiesPanel } from "@/components/prospects/prospect-opportunities-panel";
+import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getCurrentProfile } from "@/lib/auth/roles";
@@ -132,13 +134,21 @@ export default async function ProspectDetailPage({
         title={prospectRow.company_name}
         description={`${segmentLabels[segmentCode]} - ${prospectRow.city ?? "Ville non renseignee"}`}
         action={
-          <Link
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
-            href={`/prospects/${prospectRow.id}/edit`}
-          >
-            <Pencil size={16} />
-            Modifier
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
+              href={`/prospects/${prospectRow.id}/edit`}
+            >
+              <Pencil size={16} />
+              Modifier
+            </Link>
+            <form action={deleteProspect}>
+              <input name="prospect_id" type="hidden" value={prospectRow.id} />
+              <DeleteSubmitButton
+                confirmMessage={`Supprimer definitivement le prospect ${prospectRow.company_name} et ses donnees associees ?`}
+              />
+            </form>
+          </div>
         }
       />
 
