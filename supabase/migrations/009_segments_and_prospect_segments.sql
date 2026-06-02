@@ -1,3 +1,34 @@
+-- Migration 009 - nouveaux segments + plusieurs segments par prospect.
+-- Ce fichier est volontairement autonome et idempotent : il peut etre relance
+-- dans le SQL Editor Supabase si une execution precedente a echoue au milieu.
+
+create or replace function public.current_app_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role
+  from public.users
+  where id = auth.uid()
+$$;
+
+create or replace function public.can_access_commercial(target_commercial_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    auth.uid() is not null
+    and (
+      target_commercial_id = auth.uid()
+      or public.current_app_role() in ('admin', 'manager')
+    )
+$$;
+
 alter table public.segments
   drop constraint if exists segments_code_check;
 
@@ -95,38 +126,49 @@ with default_segment as (
 )
 update public.prospects
 set segment_id = (select id from default_segment)
-where segment_id not in (
-  select id
-  from public.segments
-  where code in (
-    'bardage_decoratif',
-    'autres_agencements',
-    'structure_mobilier',
-    'usinage_3d',
-    'co_conception',
-    'nautisme',
-    'pieces_industrielles'
-  )
-);
+where segment_id is null
+   or segment_id not in (
+    select id
+    from public.segments
+    where code in (
+      'bardage_decoratif',
+      'autres_agencements',
+      'structure_mobilier',
+      'usinage_3d',
+      'co_conception',
+      'nautisme',
+      'pieces_industrielles'
+    )
+  );
 
 with default_segment as (
   select id from public.segments where code = 'autres_agencements' limit 1
 )
 update public.opportunites
 set segment_id = (select id from default_segment)
-where segment_id not in (
-  select id
-  from public.segments
-  where code in (
-    'bardage_decoratif',
-    'autres_agencements',
-    'structure_mobilier',
-    'usinage_3d',
-    'co_conception',
-    'nautisme',
-    'pieces_industrielles'
-  )
-);
+where segment_id is null
+   or segment_id not in (
+    select id
+    from public.segments
+    where code in (
+      'bardage_decoratif',
+      'autres_agencements',
+      'structure_mobilier',
+      'usinage_3d',
+      'co_conception',
+      'nautisme',
+      'pieces_industrielles'
+    )
+  );
+
+delete from public.prospect_segments ps
+using public.segments s
+where ps.segment_id = s.id
+  and s.code in (
+    'agencements_decoratifs',
+    'structures_mobilier',
+    'usinage_3d_prototypage_rotomoulage'
+  );
 
 insert into public.prospect_segments (prospect_id, segment_id)
 select id, segment_id
@@ -151,3 +193,7 @@ alter table public.segments
     'nautisme',
     'pieces_industrielles'
   ));
+
+select code, name
+from public.segments
+order by name;
