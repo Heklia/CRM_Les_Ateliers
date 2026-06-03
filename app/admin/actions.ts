@@ -1,0 +1,162 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile, type AppRole } from "@/lib/auth/roles";
+import { optionalText, requiredEnum, requiredText } from "@/lib/forms/validation";
+
+type AdminUserState = {
+  error?: string;
+  success?: string;
+};
+
+const roles = ["lecteur", "modification", "admin"] as const;
+
+export async function createUser(
+  _previousState: AdminUserState,
+  formData: FormData
+): Promise<AdminUserState> {
+  const access = await ensureAdminAccess();
+  if (!access.ok) return { error: access.error };
+
+  const email = requiredText(formData, "email", "Email");
+  const fullName = requiredText(formData, "full_name", "Nom");
+  const password = requiredText(formData, "password", "Mot de passe temporaire");
+  const role = requiredEnum(formData, "role", "Role", roles);
+
+  if (!email.ok) return { error: email.error };
+  if (!fullName.ok) return { error: fullName.error };
+  if (!password.ok) return { error: password.error };
+  if (!role.ok) return { error: role.error };
+
+  const admin = createAdminClient();
+  if (!admin) return missingServiceRoleError();
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email: email.data,
+    password: password.data,
+    email_confirm: true,
+    user_metadata: { full_name: fullName.data }
+  });
+
+  if (error || !data.user) {
+    return { error: `Impossible de creer l'utilisateur Auth : ${error?.message ?? "erreur inconnue"}` };
+  }
+
+  const usersTable = admin.from("users") as any;
+  const { error: profileError } = await usersTable.upsert({
+    id: data.user.id,
+    email: email.data,
+    full_name: fullName.data,
+    role: role.data,
+    phone: optionalText(formData, "phone"),
+    is_active: true
+  });
+
+  if (profileError) {
+    return { error: `Utilisateur Auth cree, mais profil applicatif impossible : ${profileError.message}` };
+  }
+
+  revalidatePath("/admin");
+  return { success: "Utilisateur cree." };
+}
+
+export async function updateUser(
+  _previousState: AdminUserState,
+  formData: FormData
+): Promise<AdminUserState> {
+  const access = await ensureAdminAccess();
+  if (!access.ok) return { error: access.error };
+
+  const userId = requiredText(formData, "user_id", "Utilisateur");
+  const email = requiredText(formData, "email", "Email");
+  const fullName = requiredText(formData, "full_name", "Nom");
+  const role = requiredEnum(formData, "role", "Role", roles);
+
+  if (!userId.ok) return { error: userId.error };
+  if (!email.ok) return { error: email.error };
+  if (!fullName.ok) return { error: fullName.error };
+  if (!role.ok) return { error: role.error };
+
+  const admin = createAdminClient();
+  if (!admin) return missingServiceRoleError();
+
+  const isActive = formData.get("is_active") === "on";
+  const { error: authError } = await admin.auth.admin.updateUserById(userId.data, {
+    email: email.data,
+    user_metadata: { full_name: fullName.data }
+  });
+
+  if (authError) {
+    return { error: `Impossible de mettre a jour Auth : ${authError.message}` };
+  }
+
+  const usersTable = admin.from("users") as any;
+  const { error } = await usersTable
+    .update({
+      email: email.data,
+      full_name: fullName.data,
+      role: role.data as AppRole,
+      phone: optionalText(formData, "phone"),
+      is_active: isActive
+    })
+    .eq("id", userId.data);
+
+  if (error) {
+    return { error: `Impossible de mettre a jour le profil : ${error.message}` };
+  }
+
+  revalidatePath("/admin");
+  return { success: "Utilisateur mis a jour." };
+}
+
+export async function sendPasswordReset(
+  _previousState: AdminUserState,
+  formData: FormData
+): Promise<AdminUserState> {
+  const access = await ensureAdminAccess();
+  if (!access.ok) return { error: access.error };
+
+  const email = requiredText(formData, "email", "Email");
+  if (!email.ok) return { error: email.error };
+
+  const supabase = createClient() as any;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL;
+  const redirectTo = siteUrl
+    ? `${siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`}/login`
+    : undefined;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email.data, {
+    redirectTo
+  });
+
+  if (error) {
+    return { error: `Impossible d'envoyer l'email : ${error.message}` };
+  }
+
+  return { success: "Email de reinitialisation envoye." };
+}
+
+async function ensureAdminAccess() {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
+  if (profile.role !== "admin") {
+    return { ok: false as const, error: "Acces reserve aux admins." };
+  }
+
+  return { ok: true as const };
+}
+
+function missingServiceRoleError(): AdminUserState {
+  return {
+    error:
+      "La variable SUPABASE_SERVICE_ROLE_KEY manque cote serveur. Ajoutez-la dans Vercel > Environment Variables."
+  };
+}
