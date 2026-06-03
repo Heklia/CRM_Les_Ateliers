@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Mail, ShieldCheck } from "lucide-react";
 import { signIn } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,11 @@ export default function LoginPage({
         <form action={signIn} className="space-y-4">
           <Field label="Email" name="email" type="email" placeholder="prenom@entreprise.fr" />
           <Field label="Mot de passe" name="password" type="password" placeholder="********" />
+          <div className="text-right">
+            <Link className="text-sm font-medium text-primary hover:underline" href="/forgot-password">
+              Mot de passe oublie ?
+            </Link>
+          </div>
           <Button className="w-full" type="submit">
             <Mail size={16} />
             Se connecter

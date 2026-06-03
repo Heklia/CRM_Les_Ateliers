@@ -22,3 +22,27 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+export async function requestPasswordReset(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) {
+    redirect("/forgot-password?error=missing_email");
+  }
+
+  const supabase = createClient() as any;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL;
+  const redirectTo = siteUrl
+    ? `${siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`}/login`
+    : undefined;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo
+  });
+
+  if (error) {
+    redirect("/forgot-password?error=send_failed");
+  }
+
+  redirect("/forgot-password?success=sent");
+}
