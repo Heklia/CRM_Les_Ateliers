@@ -42,21 +42,50 @@ export async function createUser(
   });
 
   if (error || !data.user) {
-    return { error: `Impossible de creer l'utilisateur Auth : ${error?.message ?? "erreur inconnue"}` };
+    const existingUser = error?.message.toLowerCase().includes("already been registered")
+      ? await findAuthUserByEmail(admin, email.data)
+      : null;
+
+    if (!existingUser) {
+      return { error: `Impossible de creer l'utilisateur Auth : ${error?.message ?? "erreur inconnue"}` };
+    }
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, {
+      password: password.data,
+      email_confirm: true,
+      user_metadata: { full_name: fullName.data }
+    });
+
+    if (updateError) {
+      return { error: `Compte Auth existant, mais mise a jour impossible : ${updateError.message}` };
+    }
+
+    const repairedProfile = await upsertUserProfile(admin, {
+      id: existingUser.id,
+      email: email.data,
+      fullName: fullName.data,
+      role: role.data,
+      phone: optionalText(formData, "phone")
+    });
+
+    if (repairedProfile.error) {
+      return { error: repairedProfile.error };
+    }
+
+    revalidatePath("/admin");
+    return { success: "Utilisateur Auth existant rattache a l'application." };
   }
 
-  const usersTable = admin.from("users") as any;
-  const { error: profileError } = await usersTable.upsert({
+  const profile = await upsertUserProfile(admin, {
     id: data.user.id,
     email: email.data,
-    full_name: fullName.data,
+    fullName: fullName.data,
     role: role.data,
-    phone: optionalText(formData, "phone"),
-    is_active: true
+    phone: optionalText(formData, "phone")
   });
 
-  if (profileError) {
-    return { error: `Utilisateur Auth cree, mais profil applicatif impossible : ${profileError.message}` };
+  if (profile.error) {
+    return { error: profile.error };
   }
 
   revalidatePath("/admin");
@@ -186,4 +215,46 @@ function missingServiceRoleError(): AdminUserState {
     error:
       "La variable SUPABASE_SERVICE_ROLE_KEY manque cote serveur. Ajoutez-la dans Vercel > Environment Variables."
   };
+}
+
+async function findAuthUserByEmail(admin: NonNullable<ReturnType<typeof createAdminClient>>, email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return null;
+
+    const user = data.users.find((item) => item.email?.toLowerCase() === normalizedEmail);
+    if (user) return user;
+    if (data.users.length < 1000) return null;
+  }
+
+  return null;
+}
+
+async function upsertUserProfile(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: AppRole;
+    phone: string | null;
+  }
+): Promise<AdminUserState> {
+  const usersTable = admin.from("users") as any;
+  const { error } = await usersTable.upsert({
+    id: user.id,
+    email: user.email,
+    full_name: user.fullName,
+    role: user.role,
+    phone: user.phone,
+    is_active: true
+  });
+
+  if (error) {
+    return { error: `Profil applicatif impossible a creer : ${error.message}` };
+  }
+
+  return {};
 }
