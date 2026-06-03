@@ -112,6 +112,33 @@ export async function updateUser(
   return { success: "Utilisateur mis a jour." };
 }
 
+export async function deleteUser(
+  _previousState: AdminUserState,
+  formData: FormData
+): Promise<AdminUserState> {
+  const access = await ensureAdminAccess();
+  if (!access.ok) return { error: access.error };
+
+  const userId = requiredText(formData, "user_id", "Utilisateur");
+  if (!userId.ok) return { error: userId.error };
+
+  if (access.profile.id === userId.data) {
+    return { error: "Vous ne pouvez pas supprimer votre propre compte admin." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) return missingServiceRoleError();
+
+  const { error } = await admin.auth.admin.deleteUser(userId.data);
+
+  if (error) {
+    return { error: `Impossible de supprimer l'utilisateur : ${error.message}` };
+  }
+
+  revalidatePath("/admin");
+  return { success: "Utilisateur supprime." };
+}
+
 export async function sendPasswordReset(
   _previousState: AdminUserState,
   formData: FormData
@@ -151,7 +178,7 @@ async function ensureAdminAccess() {
     return { ok: false as const, error: "Acces reserve aux admins." };
   }
 
-  return { ok: true as const };
+  return { ok: true as const, profile };
 }
 
 function missingServiceRoleError(): AdminUserState {

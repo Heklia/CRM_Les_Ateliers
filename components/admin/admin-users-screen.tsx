@@ -1,8 +1,8 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import { KeyRound, Save, UserPlus } from "lucide-react";
-import { createUser, sendPasswordReset, updateUser } from "@/app/admin/actions";
+import { KeyRound, Save, Trash2, UserPlus } from "lucide-react";
+import { createUser, deleteUser, sendPasswordReset, updateUser } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import type { AppRole } from "@/lib/auth/roles";
@@ -58,6 +58,7 @@ export function AdminUsersScreen({ users }: { users: AdminUser[] }) {
 function UserRow({ user }: { user: AdminUser }) {
   const [updateState, updateAction] = useFormState(updateUser, initialState);
   const [resetState, resetAction] = useFormState(sendPasswordReset, initialState);
+  const [deleteState, deleteAction] = useFormState(deleteUser, initialState);
 
   return (
     <article className="rounded-md border border-border p-4">
@@ -83,6 +84,23 @@ function UserRow({ user }: { user: AdminUser }) {
         <Button type="submit" variant="secondary">
           <KeyRound size={16} />
           Envoyer reset mot de passe
+        </Button>
+      </form>
+
+      <form
+        action={deleteAction}
+        className="mt-3 flex justify-end"
+        onSubmit={(event) => {
+          if (!window.confirm(`Supprimer definitivement ${user.email} ?`)) {
+            event.preventDefault();
+          }
+        }}
+      >
+        <input name="user_id" type="hidden" value={user.id} />
+        <ResetMessage state={deleteState} />
+        <Button className="border-red-200 text-red-700 hover:bg-red-50" type="submit" variant="secondary">
+          <Trash2 size={16} />
+          Supprimer l'utilisateur
         </Button>
       </form>
     </article>
