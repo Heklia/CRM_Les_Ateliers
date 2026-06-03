@@ -4,9 +4,9 @@ export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Prospects", href: "/prospects" },
   { label: "Actions", href: "/visites" },
-  { label: "Pipeline", href: "/pipeline" },
+  { label: "Pipeline", href: "/pipeline", adminOnly: true },
   { label: "Exports", href: "/exports" },
-  { label: "Administration", href: "/admin" }
+  { label: "Administration", href: "/admin", adminOnly: true }
 ];
 
 export const segmentLabels = {

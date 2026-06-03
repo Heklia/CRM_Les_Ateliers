@@ -29,4 +29,5 @@ export type OpportunityStage =
 export type NavItem = {
   label: string;
   href: string;
+  adminOnly?: boolean;
 };

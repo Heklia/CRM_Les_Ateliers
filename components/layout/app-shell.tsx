@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/header";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { QuickVisitButton } from "@/components/layout/quick-visit-button";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export async function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
       <Header />

@@ -38,6 +38,10 @@ export default async function PipelinePage() {
     redirect("/login");
   }
 
+  if (profile.role !== "admin") {
+    redirect("/dashboard");
+  }
+
   const prospectsQuery = supabase
     .from("prospects")
     .select("id, company_name, city, pipeline_stage, estimated_potential, interest_level, priority_score, project_timeline, capacity_fit, recurrence_potential, need_maturity")

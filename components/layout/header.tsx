@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { BarChart3, LogOut } from "lucide-react";
 import { signOut } from "@/app/login/actions";
+import { getCurrentProfile } from "@/lib/auth/roles";
 import { navItems } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/server";
 
-export function Header() {
+export async function Header() {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+  const visibleItems = navItems.filter((item) => !item.adminOnly || profile?.role === "admin");
+
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6 lg:px-8">
@@ -15,7 +21,7 @@ export function Header() {
         </Link>
         <div className="flex items-center gap-2">
           <nav className="hidden items-center gap-1 md:flex">
-            {navItems.map((item) => (
+            {visibleItems.map((item) => (
               <Link
                 className="rounded-md px-3 py-2 text-sm font-medium text-muted hover:bg-background hover:text-foreground"
                 href={item.href}
