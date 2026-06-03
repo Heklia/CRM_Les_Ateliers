@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { ResourceAssignmentsForm } from "@/components/admin/resource-assignments-form";
 import { EditVisitReportForm } from "@/components/visites/edit-visit-report-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth/roles";
@@ -11,6 +12,7 @@ type VisitRow = {
   id: string;
   prospect_id: string;
   opportunite_id: string | null;
+  commercial_id: string;
   visite_date: string;
   type: string;
   personnes_rencontrees: string | null;
@@ -53,6 +55,17 @@ type OpportunityRow = {
   probability: number;
 };
 
+type UserRow = {
+  id: string;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+};
+
+type VisitAssignmentRow = {
+  user_id: string;
+};
+
 export default async function EditVisitPage({
   params
 }: {
@@ -65,7 +78,14 @@ export default async function EditVisitPage({
     redirect("/login");
   }
 
-  const [{ data: visit }, { data: prospects }, { data: contacts }, { data: opportunities }] = await Promise.all([
+  const [
+    { data: visit },
+    { data: prospects },
+    { data: contacts },
+    { data: opportunities },
+    { data: users },
+    { data: assignments }
+  ] = await Promise.all([
     supabase
       .from("visites")
       .select("id, prospect_id, opportunite_id, contact_id, commercial_id, visite_date, type, personnes_rencontrees, besoins, freins, application_envisagee, matiere_procede, budget_estime, delai_projet, niveau_interet, prochaine_etape, prochaine_relance_at, commentaire")
@@ -91,7 +111,19 @@ export default async function EditVisitPage({
         .select("id, prospect_id, title, stage, description, estimated_value, expected_close_date, probability, commercial_id")
         .order("updated_at", { ascending: false }),
       profile
-    )
+    ),
+    profile.role === "admin"
+      ? supabase
+          .from("users")
+          .select("id, email, full_name, is_active")
+          .order("full_name", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    profile.role === "admin"
+      ? supabase
+          .from("visite_assignments")
+          .select("user_id")
+          .eq("visite_id", params.id)
+      : Promise.resolve({ data: [] })
   ]);
 
   if (!visit) {
@@ -102,7 +134,19 @@ export default async function EditVisitPage({
   const prospectRows = (prospects ?? []) as ProspectRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
+  const userRows = (users ?? []) as UserRow[];
+  const assignmentRows = (assignments ?? []) as VisitAssignmentRow[];
   const currentProspect = prospectRows.find((prospect) => prospect.id === visitRow.prospect_id);
+  const assignmentUsers = userRows.map((user) => ({
+    id: user.id,
+    email: user.email,
+    fullName: user.full_name,
+    isActive: user.is_active
+  }));
+  const assignedUserIds =
+    assignmentRows.length > 0
+      ? assignmentRows.map((assignment) => assignment.user_id)
+      : [visitRow.commercial_id];
 
   return (
     <main>
@@ -119,6 +163,17 @@ export default async function EditVisitPage({
           </Link>
         }
       />
+
+      {profile.role === "admin" ? (
+        <div className="mb-6">
+          <ResourceAssignmentsForm
+            assignedUserIds={assignedUserIds}
+            resourceId={visitRow.id}
+            type="visit"
+            users={assignmentUsers}
+          />
+        </div>
+      ) : null}
 
       <EditVisitReportForm
         contacts={contactRows}

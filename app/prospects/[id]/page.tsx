@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarPlus, Pencil } from "lucide-react";
 import { deleteProspect } from "@/app/prospects/[id]/actions";
+import { ResourceAssignmentsForm } from "@/components/admin/resource-assignments-form";
 import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
 import { ProspectOpportunitiesPanel } from "@/components/prospects/prospect-opportunities-panel";
 import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
@@ -14,6 +15,7 @@ import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types"
 
 type ProspectRow = {
   id: string;
+  commercial_id: string;
   segment_id: string;
   company_name: string;
   city: string | null;
@@ -55,6 +57,17 @@ type OpportunityRow = {
   updated_at: string;
 };
 
+type UserRow = {
+  id: string;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+};
+
+type ProspectAssignmentRow = {
+  user_id: string;
+};
+
 export default async function ProspectDetailPage({
   params
 }: {
@@ -72,12 +85,14 @@ export default async function ProspectDetailPage({
     { data: segments },
     { data: contacts },
     { data: visits },
-    { data: opportunities }
+    { data: opportunities },
+    { data: users },
+    { data: assignments }
   ] =
     await Promise.all([
       supabase
         .from("prospects")
-        .select("id, segment_id, company_name, city, status, interest_level, notes")
+        .select("id, commercial_id, segment_id, company_name, city, status, interest_level, notes")
         .eq("id", params.id)
         .single(),
       supabase.from("segments").select("id, code"),
@@ -95,7 +110,19 @@ export default async function ProspectDetailPage({
         .from("opportunites")
         .select("id, prospect_id, title, description, stage, estimated_value, probability, expected_close_date, updated_at")
         .eq("prospect_id", params.id)
-        .order("updated_at", { ascending: false })
+        .order("updated_at", { ascending: false }),
+      profile.role === "admin"
+        ? supabase
+            .from("users")
+            .select("id, email, full_name, is_active")
+            .order("full_name", { ascending: true })
+        : Promise.resolve({ data: [] }),
+      profile.role === "admin"
+        ? supabase
+            .from("prospect_assignments")
+            .select("user_id")
+            .eq("prospect_id", params.id)
+        : Promise.resolve({ data: [] })
     ]);
 
   if (!prospect) {
@@ -107,6 +134,8 @@ export default async function ProspectDetailPage({
   const contactRows = (contacts ?? []) as ContactRow[];
   const visitRows = (visits ?? []) as VisitRow[];
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
+  const userRows = (users ?? []) as UserRow[];
+  const assignmentRows = (assignments ?? []) as ProspectAssignmentRow[];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
   const segmentCode = (segment?.code ?? "autres_agencements") as SegmentCode;
   const contactItems = contactRows.map((contact) => ({
@@ -126,6 +155,16 @@ export default async function ProspectDetailPage({
     probability: opportunity.probability,
     expectedCloseDate: opportunity.expected_close_date,
     updatedAt: opportunity.updated_at
+  }));
+  const assignedUserIds =
+    assignmentRows.length > 0
+      ? assignmentRows.map((assignment) => assignment.user_id)
+      : [prospectRow.commercial_id];
+  const assignmentUsers = userRows.map((user) => ({
+    id: user.id,
+    email: user.email,
+    fullName: user.full_name,
+    isActive: user.is_active
   }));
 
   return (
@@ -169,6 +208,15 @@ export default async function ProspectDetailPage({
             <InfoRow label="Commentaire" value={prospectRow.notes ?? "Aucun commentaire"} />
           </dl>
         </div>
+
+        {profile.role === "admin" ? (
+          <ResourceAssignmentsForm
+            assignedUserIds={assignedUserIds}
+            resourceId={prospectRow.id}
+            type="prospect"
+            users={assignmentUsers}
+          />
+        ) : null}
 
         <ProspectContactsTabs contacts={contactItems} prospectId={prospectRow.id} />
 

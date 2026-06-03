@@ -235,6 +235,7 @@ export async function updateProspectAssignments(
 
   revalidatePath("/admin");
   revalidatePath("/prospects");
+  revalidatePath(`/prospects/${prospectId.data}`);
   return { success: "Affectations prospect mises a jour." };
 }
 
@@ -278,6 +279,7 @@ export async function updateVisitAssignments(
 
   revalidatePath("/admin");
   revalidatePath("/visites");
+  revalidatePath(`/visites/${visitId.data}/edit`);
   return { success: "Affectations action mises a jour." };
 }
 
