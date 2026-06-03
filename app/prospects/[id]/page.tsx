@@ -5,10 +5,11 @@ import { deleteProspect } from "@/app/prospects/[id]/actions";
 import { ResourceAssignmentsForm } from "@/components/admin/resource-assignments-form";
 import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
 import { ProspectOpportunitiesPanel } from "@/components/prospects/prospect-opportunities-panel";
+import { ProspectStatusForm } from "@/components/prospects/prospect-status-form";
 import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
-import { getCurrentProfile } from "@/lib/auth/roles";
+import { canModifyData, getCurrentProfile } from "@/lib/auth/roles";
 import { opportunityStages, segmentLabels, statusLabels } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
@@ -198,7 +199,14 @@ export default async function ProspectDetailPage({
             <div className="flex justify-between gap-4">
               <dt className="text-muted">Statut</dt>
               <dd>
-                <StatusPill>{statusLabels[prospectRow.status as ProspectStatus]}</StatusPill>
+                {canModifyData(profile) ? (
+                  <ProspectStatusForm
+                    prospectId={prospectRow.id}
+                    status={prospectRow.status as ProspectStatus}
+                  />
+                ) : (
+                  <StatusPill>{statusLabels[prospectRow.status as ProspectStatus]}</StatusPill>
+                )}
               </dd>
             </div>
             <InfoRow
