@@ -79,6 +79,7 @@ export function EditVisitReportForm({
   const [selectedProspectId, setSelectedProspectId] = useState(visit.prospectId);
   const [selectedContactId, setSelectedContactId] = useState(visit.contactId ?? "");
   const [selectedOpportunityId, setSelectedOpportunityId] = useState(visit.opportunityId ?? "");
+  const [prospectStatus, setProspectStatus] = useState(visit.prospectStatus);
   const prospectContacts = useMemo(
     () => contacts.filter((contact) => contact.prospect_id === selectedProspectId),
     [contacts, selectedProspectId]
@@ -257,9 +258,10 @@ export function EditVisitReportForm({
         Statut du prospect apres action
         <select
           className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          defaultValue={visit.prospectStatus}
           name="prospect_status"
+          onChange={(event) => setProspectStatus(event.target.value)}
           required
+          value={prospectStatus}
         >
           <option value="en_cours">En cours</option>
           <option value="qualifie">Qualifie</option>
@@ -268,28 +270,37 @@ export function EditVisitReportForm({
         </select>
       </label>
 
-      <label className="block text-sm font-medium">
-        Prochaine action
-        <select
-          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          defaultValue={getNextActionValue(visit.nextStep)}
-          name="prochaine_etape"
-          required
-        >
-          <option value="appel">Appel</option>
-          <option value="email">Email</option>
-          <option value="visite_terrain">Visite terrain</option>
-          <option value="salon">Salon</option>
-          <option value="autre">Autre</option>
-        </select>
-      </label>
+      {prospectStatus !== "perdu" ? (
+        <>
+          <label className="block text-sm font-medium">
+            Prochaine action
+            <select
+              className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
+              defaultValue={getNextActionValue(visit.nextStep)}
+              name="prochaine_etape"
+              required
+            >
+              <option value="appel">Appel</option>
+              <option value="email">Email</option>
+              <option value="visite_terrain">Visite terrain</option>
+              <option value="salon">Salon</option>
+              <option value="devis">Devis</option>
+              <option value="autre">Autre</option>
+            </select>
+          </label>
 
-      <Field
-        defaultValue={visit.followUpAt ? toDate(visit.followUpAt) : ""}
-        label="Date prochaine action"
-        name="prochaine_relance_at"
-        type="date"
-      />
+          <Field
+            defaultValue={visit.followUpAt ? toDate(visit.followUpAt) : ""}
+            label="Date prochaine action"
+            name="prochaine_relance_at"
+            type="date"
+          />
+        </>
+      ) : (
+        <p className="rounded-md border border-border bg-background px-3 py-3 text-sm text-muted">
+          Prospect perdu : aucune prochaine action ne sera creee.
+        </p>
+      )}
 
       <div className="lg:col-span-2">
         <Field

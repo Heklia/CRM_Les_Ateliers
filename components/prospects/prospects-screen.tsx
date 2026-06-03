@@ -5,11 +5,7 @@ import Link from "next/link";
 import { Pencil, Plus, Search, Upload } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
-import {
-  opportunityStageLabels,
-  segmentLabels,
-  statusLabels
-} from "@/lib/constants";
+import { segmentLabels, statusLabels } from "@/lib/constants";
 import { prospects as mockProspects } from "@/lib/mock-data";
 import { calculatePriorityScore, getPriorityTone } from "@/lib/priority-score";
 import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
@@ -43,6 +39,11 @@ export function ProspectsScreen({
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState("");
   const [assignedUser, setAssignedUser] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState<ProspectStatus[]>([
+    "en_cours",
+    "qualifie",
+    "client"
+  ]);
 
   const assignedUsers = useMemo(
     () => Array.from(new Set(prospects.flatMap((prospect) => prospect.assignedUsers))).sort(),
@@ -59,10 +60,19 @@ export function ProspectsScreen({
       const matchesSegment = segment === "" || prospect.segment === segment;
       const matchesAssignedUser =
         assignedUser === "" || prospect.assignedUsers.includes(assignedUser);
+      const matchesStatus = selectedStatuses.includes(prospect.status);
 
-      return matchesQuery && matchesSegment && matchesAssignedUser;
+      return matchesQuery && matchesSegment && matchesAssignedUser && matchesStatus;
     });
-  }, [assignedUser, prospects, query, segment]);
+  }, [assignedUser, prospects, query, segment, selectedStatuses]);
+
+  function toggleStatus(status: ProspectStatus) {
+    setSelectedStatuses((current) =>
+      current.includes(status)
+        ? current.filter((item) => item !== status)
+        : [...current, status]
+    );
+  }
 
   return (
     <main>
@@ -138,12 +148,30 @@ export function ProspectsScreen({
           </label>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-sm">
+          <span className="mr-1 font-medium">Statuts</span>
+          {(Object.keys(statusLabels) as ProspectStatus[]).map((status) => (
+            <label
+              className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-white px-3 text-xs font-semibold text-muted has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
+              key={status}
+            >
+              <input
+                checked={selectedStatuses.includes(status)}
+                className="sr-only"
+                onChange={() => toggleStatus(status)}
+                type="checkbox"
+              />
+              {statusLabels[status]}
+            </label>
+          ))}
+        </div>
+
         <div className="flex items-center justify-between border-b border-border px-4 py-3 text-sm text-muted">
           <span>{filteredProspects.length} prospect(s)</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="text-xs uppercase text-muted">
               <tr className="border-b border-border">
                 <th className="px-4 py-3">Entreprise</th>
@@ -152,7 +180,6 @@ export function ProspectsScreen({
                 <th>Contact principal</th>
                 <th>Personnes affectees</th>
                 <th>Statut</th>
-                <th>Pipeline</th>
                 <th>Score</th>
                 <th>Derniere visite</th>
                 <th className="text-right">Action</th>
@@ -161,7 +188,9 @@ export function ProspectsScreen({
             <tbody>
               {filteredProspects.map((prospect) => (
                 <tr
-                  className="border-b border-border last:border-0 hover:bg-background"
+                  className={`border-b border-border last:border-0 hover:bg-background ${
+                    prospect.status === "perdu" ? "bg-slate-50 text-muted opacity-70" : ""
+                  }`}
                   key={prospect.id}
                 >
                   <td className="px-4 py-3">
@@ -179,11 +208,6 @@ export function ProspectsScreen({
                   <td>
                     <StatusPill tone={prospect.status === "client" ? "success" : "neutral"}>
                       {statusLabels[prospect.status]}
-                    </StatusPill>
-                  </td>
-                  <td>
-                    <StatusPill tone={prospect.pipelineStage === "devis_a_faire" ? "warning" : "neutral"}>
-                      {opportunityStageLabels[prospect.pipelineStage]}
                     </StatusPill>
                   </td>
                   <td>

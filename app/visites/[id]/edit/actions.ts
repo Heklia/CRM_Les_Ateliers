@@ -43,9 +43,12 @@ export async function updateVisitReport(
   const visitDate = requiredDateTime(formData, "visite_date", "Date de visite");
   const contactType = requiredEnum(formData, "type", "Type de contact", contactTypes);
   const need = optionalText(formData, "besoins");
-  const nextActions = requiredEnum(formData, "prochaine_etape", "Prochaine action", nextActionTypes);
   const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
   const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
+  const nextActions =
+    prospectStatus.ok && prospectStatus.data === "perdu"
+      ? ({ ok: true as const, data: null } as const)
+      : requiredEnum(formData, "prochaine_etape", "Prochaine action", nextActionTypes);
   const budget = optionalNonNegativeNumber(formData, "budget_estime", "Budget estime");
   const followUpDate = optionalDateTime(formData, "prochaine_relance_at", "Date de relance");
 
@@ -129,8 +132,8 @@ export async function updateVisitReport(
       budget_estime: budget.data === null ? null : budget.data * 1000,
       delai_projet: optionalText(formData, "delai_projet"),
       niveau_interet: interestMap[interest.data],
-      prochaine_etape: nextActions.data,
-      prochaine_relance_at: followUpDate.data,
+      prochaine_etape: prospectStatus.data === "perdu" ? null : nextActions.data,
+      prochaine_relance_at: prospectStatus.data === "perdu" ? null : followUpDate.data,
       commentaire: optionalText(formData, "commentaire")
     })
     .eq("id", visitId.data);
@@ -152,10 +155,14 @@ export async function updateVisitReport(
   await supabase
     .from("actions_suivantes")
     .delete()
-    .eq("visite_id", visitId.data)
+    .eq(prospectStatus.data === "perdu" ? "prospect_id" : "visite_id", prospectStatus.data === "perdu" ? prospectId.data : visitId.data)
     .eq("status", "a_faire");
 
   if (prospectStatus.data !== "perdu") {
+    if (!nextActions.data) {
+      return { error: "Prochaine action obligatoire." };
+    }
+
     const { error: actionError } = await supabase.from("actions_suivantes").insert({
       prospect_id: prospectId.data,
       opportunite_id: opportunity.opportunityId,

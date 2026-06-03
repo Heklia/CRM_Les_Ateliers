@@ -42,9 +42,12 @@ export async function createVisitReport(
   const visitDate = requiredDateTime(formData, "visite_date", "Date de visite");
   const contactType = requiredEnum(formData, "type", "Type de contact", contactTypes);
   const need = optionalText(formData, "besoins");
-  const nextActions = requiredEnum(formData, "prochaine_etape", "Prochaine action", nextActionTypes);
   const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
   const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
+  const nextActions =
+    prospectStatus.ok && prospectStatus.data === "perdu"
+      ? ({ ok: true as const, data: null } as const)
+      : requiredEnum(formData, "prochaine_etape", "Prochaine action", nextActionTypes);
   const budget = optionalNonNegativeNumber(formData, "budget_estime", "Budget estime");
   const followUpDate = optionalDateTime(formData, "prochaine_relance_at", "Date de relance");
 
@@ -122,8 +125,8 @@ export async function createVisitReport(
     budget_estime: validatedBudget,
     delai_projet: optionalText(formData, "delai_projet"),
     niveau_interet: interestMap[validatedInterest],
-    prochaine_etape: validatedNextActions,
-    prochaine_relance_at: validatedFollowUpDate,
+    prochaine_etape: validatedProspectStatus === "perdu" ? null : validatedNextActions,
+    prochaine_relance_at: validatedProspectStatus === "perdu" ? null : validatedFollowUpDate,
     commentaire: optionalText(formData, "commentaire")
   }).select("id").single();
 
@@ -155,7 +158,17 @@ export async function createVisitReport(
     };
   }
 
-  if (validatedProspectStatus !== "perdu") {
+  if (validatedProspectStatus === "perdu") {
+    await supabase
+      .from("actions_suivantes")
+      .delete()
+      .eq("prospect_id", validatedProspectId)
+      .eq("status", "a_faire");
+  } else {
+    if (!validatedNextActions) {
+      return { error: "Prochaine action obligatoire." };
+    }
+
     const { error: actionError } = await supabase.from("actions_suivantes").insert({
       prospect_id: validatedProspectId,
       opportunite_id: opportunity.opportunityId,
