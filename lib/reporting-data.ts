@@ -5,6 +5,7 @@ export type ReportingProspect = {
   company: string;
   contact: string;
   commercial: string;
+  assignedUsers: string[];
   city: string;
   segment: SegmentCode;
   status: ProspectStatus;
@@ -26,6 +27,7 @@ export type ReportingVisit = {
   company: string;
   contact: string;
   commercial: string;
+  assignedUsers: string[];
   date: string;
   type: string;
   summary: string;
@@ -40,6 +42,7 @@ export type ReportingOpportunity = {
   title: string;
   company: string;
   commercial: string;
+  assignedUsers: string[];
   segment: SegmentCode;
   stage: OpportunityStage;
   value: number;
@@ -57,6 +60,7 @@ export type ReportingFollowUp = {
   description: string | null;
   company: string;
   commercial: string;
+  assignedUsers: string[];
   dueAt: string;
   status: string;
   segment: SegmentCode | null;
@@ -93,6 +97,16 @@ type ContactRow = {
 type UserRow = {
   id: string;
   full_name: string;
+};
+
+type ProspectAssignmentRow = {
+  prospect_id: string;
+  user_id: string;
+};
+
+type VisitAssignmentRow = {
+  visite_id: string;
+  user_id: string;
 };
 
 type SegmentRow = {
@@ -148,7 +162,9 @@ export async function getReportingData(supabase: any) {
     { data: segments },
     { data: visits },
     { data: opportunities },
-    { data: followUps }
+    { data: followUps },
+    { data: prospectAssignments },
+    { data: visitAssignments }
   ] = await Promise.all([
     supabase
       .from("prospects")
@@ -171,7 +187,9 @@ export async function getReportingData(supabase: any) {
     supabase
       .from("actions_suivantes")
       .select("id, prospect_id, opportunite_id, visite_id, commercial_id, title, description, due_at, status, created_at, updated_at")
-      .order("due_at", { ascending: true })
+      .order("due_at", { ascending: true }),
+    supabase.from("prospect_assignments").select("prospect_id, user_id"),
+    supabase.from("visite_assignments").select("visite_id, user_id")
   ]);
 
   const prospectRows = (prospects ?? []) as ProspectRow[];
@@ -181,6 +199,8 @@ export async function getReportingData(supabase: any) {
   const visitRows = (visits ?? []) as VisitRow[];
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
   const followUpRows = (followUps ?? []) as FollowUpRow[];
+  const prospectAssignmentRows = (prospectAssignments ?? []) as ProspectAssignmentRow[];
+  const visitAssignmentRows = (visitAssignments ?? []) as VisitAssignmentRow[];
 
   const contactByProspect = new Map(
     contactRows.map((contact) => [
@@ -197,7 +217,27 @@ export async function getReportingData(supabase: any) {
   const userById = new Map(userRows.map((user) => [user.id, user.full_name]));
   const segmentById = new Map(segmentRows.map((segment) => [segment.id, segment.code]));
   const prospectById = new Map(prospectRows.map((prospect) => [prospect.id, prospect]));
+  const assignedUsersByProspect = new Map<string, string[]>();
+  const assignedUsersByVisit = new Map<string, string[]>();
   const firstActionByProspect = new Map<string, string>();
+
+  prospectAssignmentRows.forEach((assignment) => {
+    const name = userById.get(assignment.user_id);
+    if (!name) return;
+    assignedUsersByProspect.set(assignment.prospect_id, [
+      ...(assignedUsersByProspect.get(assignment.prospect_id) ?? []),
+      name
+    ]);
+  });
+
+  visitAssignmentRows.forEach((assignment) => {
+    const name = userById.get(assignment.user_id);
+    if (!name) return;
+    assignedUsersByVisit.set(assignment.visite_id, [
+      ...(assignedUsersByVisit.get(assignment.visite_id) ?? []),
+      name
+    ]);
+  });
 
   followUpRows
     .filter((followUp) => followUp.status === "a_faire")
@@ -212,6 +252,7 @@ export async function getReportingData(supabase: any) {
     company: prospect.company_name,
     contact: contactByProspect.get(prospect.id) ?? "Contact non renseigne",
     commercial: userById.get(prospect.commercial_id) ?? "Commercial",
+    assignedUsers: assignedUsersByProspect.get(prospect.id) ?? [userById.get(prospect.commercial_id) ?? "Commercial"],
     city: prospect.city ?? "",
     segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
@@ -238,6 +279,7 @@ export async function getReportingData(supabase: any) {
         ? contactById.get(visit.contact_id) ?? "Contact non renseigne"
         : "Non renseignee",
       commercial: userById.get(visit.commercial_id) ?? "Commercial",
+      assignedUsers: assignedUsersByVisit.get(visit.id) ?? [userById.get(visit.commercial_id) ?? "Commercial"],
       date: visit.visite_date,
       type: visit.type,
       summary: visit.resume ?? "",
@@ -256,6 +298,9 @@ export async function getReportingData(supabase: any) {
       title: opportunity.title,
       company: prospect?.company_name ?? "Prospect",
       commercial: userById.get(opportunity.commercial_id) ?? "Commercial",
+      assignedUsers: prospect
+        ? assignedUsersByProspect.get(prospect.id) ?? [userById.get(opportunity.commercial_id) ?? "Commercial"]
+        : [userById.get(opportunity.commercial_id) ?? "Commercial"],
       segment: (segmentById.get(opportunity.segment_id) ?? "autres_agencements") as SegmentCode,
       stage: opportunity.stage as OpportunityStage,
       value: opportunity.estimated_value ?? 0,
@@ -277,6 +322,9 @@ export async function getReportingData(supabase: any) {
       description: followUp.description,
       company: prospect?.company_name ?? "Prospect",
       commercial: userById.get(followUp.commercial_id) ?? "Commercial",
+      assignedUsers: prospect
+        ? assignedUsersByProspect.get(prospect.id) ?? [userById.get(followUp.commercial_id) ?? "Commercial"]
+        : [userById.get(followUp.commercial_id) ?? "Commercial"],
       dueAt: followUp.due_at,
       status: followUp.status,
       segment: prospect ? ((segmentById.get(prospect.segment_id) ?? null) as SegmentCode | null) : null,

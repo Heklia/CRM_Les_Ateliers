@@ -19,6 +19,7 @@ export type ProspectListItem = {
   company: string;
   contact: string;
   commercial: string;
+  assignedUsers: string[];
   city: string;
   segment: SegmentCode;
   status: ProspectStatus;
@@ -41,11 +42,11 @@ export function ProspectsScreen({
 }) {
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState("");
-  const [commercial, setCommercial] = useState("");
+  const [assignedUser, setAssignedUser] = useState("");
 
-  const commercials = useMemo(
-    () => Array.from(new Set(prospects.map((prospect) => prospect.commercial))).sort(),
-    []
+  const assignedUsers = useMemo(
+    () => Array.from(new Set(prospects.flatMap((prospect) => prospect.assignedUsers))).sort(),
+    [prospects]
   );
 
   const filteredProspects = useMemo(() => {
@@ -56,12 +57,12 @@ export function ProspectsScreen({
         normalizedQuery.length === 0 ||
         prospect.company.toLowerCase().includes(normalizedQuery);
       const matchesSegment = segment === "" || prospect.segment === segment;
-      const matchesCommercial =
-        commercial === "" || prospect.commercial === commercial;
+      const matchesAssignedUser =
+        assignedUser === "" || prospect.assignedUsers.includes(assignedUser);
 
-      return matchesQuery && matchesSegment && matchesCommercial;
+      return matchesQuery && matchesSegment && matchesAssignedUser;
     });
-  }, [commercial, query, segment]);
+  }, [assignedUser, prospects, query, segment]);
 
   return (
     <main>
@@ -121,14 +122,14 @@ export function ProspectsScreen({
           </label>
 
           <label className="block">
-            <span className="sr-only">Filtrer par commercial</span>
+            <span className="sr-only">Filtrer par personne affectee</span>
             <select
               className="h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-              onChange={(event) => setCommercial(event.target.value)}
-              value={commercial}
+              onChange={(event) => setAssignedUser(event.target.value)}
+              value={assignedUser}
             >
-              <option value="">Tous les commerciaux</option>
-              {commercials.map((name) => (
+              <option value="">Toutes les personnes affectees</option>
+              {assignedUsers.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
@@ -142,13 +143,14 @@ export function ProspectsScreen({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[1100px] text-left text-sm">
             <thead className="text-xs uppercase text-muted">
               <tr className="border-b border-border">
                 <th className="px-4 py-3">Entreprise</th>
                 <th>Segment</th>
                 <th>Ville</th>
                 <th>Contact principal</th>
+                <th>Personnes affectees</th>
                 <th>Statut</th>
                 <th>Pipeline</th>
                 <th>Score</th>
@@ -171,6 +173,9 @@ export function ProspectsScreen({
                   <td>{segmentLabels[prospect.segment]}</td>
                   <td>{prospect.city}</td>
                   <td>{prospect.contact}</td>
+                  <td>
+                    <AssignedUsers names={prospect.assignedUsers} />
+                  </td>
                   <td>
                     <StatusPill tone={prospect.status === "client" ? "success" : "neutral"}>
                       {statusLabels[prospect.status]}
@@ -211,6 +216,22 @@ export function ProspectsScreen({
         ) : null}
       </section>
     </main>
+  );
+}
+
+function AssignedUsers({ names }: { names: string[] }) {
+  if (!names.length) {
+    return <span className="text-muted">Non affecte</span>;
+  }
+
+  return (
+    <div className="flex max-w-[220px] flex-wrap gap-1">
+      {names.map((name) => (
+        <span className="rounded-md bg-background px-2 py-1 text-xs font-medium" key={name}>
+          {name}
+        </span>
+      ))}
+    </div>
   );
 }
 

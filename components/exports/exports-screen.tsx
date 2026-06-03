@@ -47,16 +47,16 @@ export function ExportsScreen({
   const commercials = useMemo(() => {
     return Array.from(
       new Set([
-        ...prospects.map((prospect) => prospect.commercial),
-        ...opportunities.map((opportunity) => opportunity.commercial),
-        ...visits.map((visit) => visit.commercial)
+        ...prospects.flatMap((prospect) => prospect.assignedUsers),
+        ...opportunities.flatMap((opportunity) => opportunity.assignedUsers),
+        ...visits.flatMap((visit) => visit.assignedUsers)
       ])
     ).sort();
   }, [opportunities, prospects, visits]);
 
   const filtered = useMemo(() => {
     const inPeriod = createPeriodFilter(period);
-    const byCommercial = (value: string) => commercial === "" || value === commercial;
+    const byCommercial = (values: string[]) => commercial === "" || values.includes(commercial);
     const bySegment = (value: SegmentCode) => segment === "" || value === segment;
     const prospectSegmentByCompany = new Map(
       prospects.map((prospect) => [prospect.company, prospect.segment])
@@ -65,28 +65,28 @@ export function ExportsScreen({
     return {
       prospects: prospects.filter(
         (prospect) =>
-          byCommercial(prospect.commercial) &&
+          byCommercial(prospect.assignedUsers) &&
           bySegment(prospect.segment) &&
           inPeriod(prospect.createdAt)
       ),
       visits: visits.filter((visit) => {
         const visitSegment = visit.segment ?? prospectSegmentByCompany.get(visit.company);
         return (
-          byCommercial(visit.commercial) &&
+          byCommercial(visit.assignedUsers) &&
           (!visitSegment || bySegment(visitSegment)) &&
           inPeriod(visit.date)
         );
       }),
       opportunities: opportunities.filter(
         (opportunity) =>
-          byCommercial(opportunity.commercial) &&
+          byCommercial(opportunity.assignedUsers) &&
           bySegment(opportunity.segment) &&
           inPeriod(opportunity.createdAt)
       ),
       followUps: followUps.filter((followUp) => {
         const followUpSegment = followUp.segment ?? prospectSegmentByCompany.get(followUp.company);
         return (
-          byCommercial(followUp.commercial) &&
+          byCommercial(followUp.assignedUsers) &&
           (!followUpSegment || bySegment(followUpSegment)) &&
           inPeriod(followUp.dueAt) &&
           followUp.status === "a_faire"
@@ -137,13 +137,13 @@ export function ExportsScreen({
 
       <section className="mb-6 grid gap-3 rounded-lg border border-border bg-surface p-4 shadow-soft lg:grid-cols-3">
         <label className="block text-sm font-medium">
-          Commercial
+          Personne affectee
           <select
             className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
             onChange={(event) => setCommercial(event.target.value)}
             value={commercial}
           >
-            <option value="">Tous les commerciaux</option>
+            <option value="">Toutes les personnes affectees</option>
             {commercials.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -216,6 +216,7 @@ function exportProspects(items: ReportingProspect[]) {
       ville: prospect.city,
       contact_principal: prospect.contact,
       commercial: prospect.commercial,
+      personnes_affectees: prospect.assignedUsers.join(", "),
       statut: statusLabels[prospect.status],
       pipeline: opportunityStageLabels[prospect.pipelineStage],
       potentiel_estime: prospect.estimatedPotential,
@@ -235,6 +236,7 @@ function exportVisits(items: ReportingVisit[]) {
       entreprise: visit.company,
       personne_concernee: visit.contact,
       commercial: visit.commercial,
+      personnes_affectees: visit.assignedUsers.join(", "),
       date: visit.date,
       type: visit.type,
       resume: visit.summary,
@@ -252,6 +254,7 @@ function exportOpportunities(items: ReportingOpportunity[]) {
       opportunite: opportunity.title,
       entreprise: opportunity.company,
       commercial: opportunity.commercial,
+      personnes_affectees: opportunity.assignedUsers.join(", "),
       segment: segmentLabels[opportunity.segment],
       etape: opportunityStageLabels[opportunity.stage],
       potentiel_estime: opportunity.value,
@@ -268,6 +271,7 @@ function exportFollowUps(items: ReportingFollowUp[]) {
     items.map((followUp) => ({
       entreprise: followUp.company,
       commercial: followUp.commercial,
+      personnes_affectees: followUp.assignedUsers.join(", "),
       date_relance: followUp.dueAt,
       statut: followUp.status,
       date_creation: followUp.createdAt,

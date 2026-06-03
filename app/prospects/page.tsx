@@ -34,6 +34,11 @@ type UserRow = {
   full_name: string;
 };
 
+type ProspectAssignmentRow = {
+  prospect_id: string;
+  user_id: string;
+};
+
 type SegmentRow = {
   id: string;
   code: string;
@@ -52,7 +57,7 @@ export default async function ProspectsPage() {
     .select("id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
     .order("updated_at", { ascending: false });
 
-  const [{ data: prospects }, { data: contacts }, { data: users }, { data: segments }] =
+  const [{ data: prospects }, { data: contacts }, { data: users }, { data: segments }, { data: assignments }] =
     await Promise.all([
       scopeByCommercial(prospectsQuery, profile),
       scopeByCommercial(
@@ -63,13 +68,15 @@ export default async function ProspectsPage() {
         profile
       ),
       supabase.from("users").select("id, full_name"),
-      supabase.from("segments").select("id, code")
+      supabase.from("segments").select("id, code"),
+      supabase.from("prospect_assignments").select("prospect_id, user_id")
     ]);
 
   const prospectRows = (prospects ?? []) as ProspectRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const userRows = (users ?? []) as UserRow[];
   const segmentRows = (segments ?? []) as SegmentRow[];
+  const assignmentRows = (assignments ?? []) as ProspectAssignmentRow[];
 
   const contactByProspect = new Map(
     contactRows.map((contact) => [
@@ -79,12 +86,23 @@ export default async function ProspectsPage() {
   );
   const userById = new Map(userRows.map((user) => [user.id, user.full_name]));
   const segmentById = new Map(segmentRows.map((segment) => [segment.id, segment.code]));
+  const assignedUsersByProspect = new Map<string, string[]>();
+
+  assignmentRows.forEach((assignment) => {
+    const name = userById.get(assignment.user_id);
+    if (!name) return;
+    assignedUsersByProspect.set(assignment.prospect_id, [
+      ...(assignedUsersByProspect.get(assignment.prospect_id) ?? []),
+      name
+    ]);
+  });
 
   const items: ProspectListItem[] = prospectRows.map((prospect) => ({
     id: prospect.id,
     company: prospect.company_name,
     contact: contactByProspect.get(prospect.id) ?? "Contact non renseigne",
     commercial: userById.get(prospect.commercial_id) ?? "Commercial",
+    assignedUsers: assignedUsersByProspect.get(prospect.id) ?? [userById.get(prospect.commercial_id) ?? "Commercial"],
     city: prospect.city ?? "",
     segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
