@@ -195,6 +195,92 @@ export async function sendPasswordReset(
   return { success: "Email de reinitialisation envoye." };
 }
 
+export async function updateProspectAssignments(
+  _previousState: AdminUserState,
+  formData: FormData
+): Promise<AdminUserState> {
+  const access = await ensureAdminAccess();
+  if (!access.ok) return { error: access.error };
+
+  const prospectId = requiredText(formData, "prospect_id", "Prospect");
+  if (!prospectId.ok) return { error: prospectId.error };
+
+  const admin = createAdminClient();
+  if (!admin) return missingServiceRoleError();
+
+  const userIds = uniqueIds(formData.getAll("user_ids"));
+  const assignmentsTable = admin.from("prospect_assignments") as any;
+
+  const { error: deleteError } = await assignmentsTable
+    .delete()
+    .eq("prospect_id", prospectId.data);
+
+  if (deleteError) {
+    return { error: `Impossible de remplacer les affectations : ${deleteError.message}` };
+  }
+
+  if (userIds.length > 0) {
+    const { error: insertError } = await assignmentsTable.insert(
+      userIds.map((userId) => ({
+        prospect_id: prospectId.data,
+        user_id: userId,
+        assigned_by: access.profile.id
+      }))
+    );
+
+    if (insertError) {
+      return { error: `Impossible d'enregistrer les affectations : ${insertError.message}` };
+    }
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/prospects");
+  return { success: "Affectations prospect mises a jour." };
+}
+
+export async function updateVisitAssignments(
+  _previousState: AdminUserState,
+  formData: FormData
+): Promise<AdminUserState> {
+  const access = await ensureAdminAccess();
+  if (!access.ok) return { error: access.error };
+
+  const visitId = requiredText(formData, "visit_id", "Action");
+  if (!visitId.ok) return { error: visitId.error };
+
+  const admin = createAdminClient();
+  if (!admin) return missingServiceRoleError();
+
+  const userIds = uniqueIds(formData.getAll("user_ids"));
+  const assignmentsTable = admin.from("visite_assignments") as any;
+
+  const { error: deleteError } = await assignmentsTable
+    .delete()
+    .eq("visite_id", visitId.data);
+
+  if (deleteError) {
+    return { error: `Impossible de remplacer les affectations : ${deleteError.message}` };
+  }
+
+  if (userIds.length > 0) {
+    const { error: insertError } = await assignmentsTable.insert(
+      userIds.map((userId) => ({
+        visite_id: visitId.data,
+        user_id: userId,
+        assigned_by: access.profile.id
+      }))
+    );
+
+    if (insertError) {
+      return { error: `Impossible d'enregistrer les affectations : ${insertError.message}` };
+    }
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/visites");
+  return { success: "Affectations action mises a jour." };
+}
+
 async function ensureAdminAccess() {
   const supabase = createClient() as any;
   const profile = await getCurrentProfile(supabase);
@@ -208,6 +294,17 @@ async function ensureAdminAccess() {
   }
 
   return { ok: true as const, profile };
+}
+
+function uniqueIds(values: FormDataEntryValue[]) {
+  return Array.from(
+    new Set(
+      values
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 function missingServiceRoleError(): AdminUserState {

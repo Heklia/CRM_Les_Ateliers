@@ -97,12 +97,19 @@ export async function createProspect(
   }
 
   if (createdProspectId) {
-    await supabase.from("prospect_segments").insert(
-      selectedSegmentsResult.segments.map((item) => ({
+    await Promise.all([
+      supabase.from("prospect_segments").insert(
+        selectedSegmentsResult.segments.map((item) => ({
+          prospect_id: createdProspectId,
+          segment_id: item.id
+        }))
+      ),
+      supabase.from("prospect_assignments").insert({
         prospect_id: createdProspectId,
-        segment_id: item.id
-      }))
-    );
+        user_id: user.id,
+        assigned_by: user.id
+      })
+    ]);
   }
 
   redirect("/prospects");

@@ -69,17 +69,21 @@ export async function updateVisitReport(
     return { error: "Prospect introuvable." };
   }
 
-  if (!canAccessCommercialData(profile, prospect.commercial_id)) {
+  if (!(await canAccessProspect(supabase, profile, prospectId.data, prospect.commercial_id))) {
     return { error: "Ce prospect n'est pas rattache au commercial connecte." };
   }
 
   const { data: visit, error: visitReadError } = await supabase
     .from("visites")
-    .select("id, commercial_id")
+    .select("id, prospect_id, commercial_id")
     .eq("id", visitId.data)
     .single();
 
-  if (visitReadError || !visit || !canAccessCommercialData(profile, visit.commercial_id)) {
+  if (
+    visitReadError ||
+    !visit ||
+    !(await canAccessVisit(supabase, profile, visit.id, visit.prospect_id, visit.commercial_id))
+  ) {
     return { error: "Visite introuvable ou non autorisee." };
   }
 
@@ -173,6 +177,47 @@ export async function updateVisitReport(
   }
 
   redirect("/visites");
+}
+
+async function canAccessProspect(
+  supabase: any,
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  prospectId: string,
+  commercialId: string
+) {
+  if (canAccessCommercialData(profile, commercialId)) {
+    return true;
+  }
+
+  const { data } = await supabase
+    .from("prospect_assignments")
+    .select("prospect_id")
+    .eq("prospect_id", prospectId)
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  return Boolean(data);
+}
+
+async function canAccessVisit(
+  supabase: any,
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  visitId: string,
+  prospectId: string,
+  commercialId: string
+) {
+  if (await canAccessProspect(supabase, profile, prospectId, commercialId)) {
+    return true;
+  }
+
+  const { data } = await supabase
+    .from("visite_assignments")
+    .select("visite_id")
+    .eq("visite_id", visitId)
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  return Boolean(data);
 }
 
 function buildSummary(formData: FormData) {

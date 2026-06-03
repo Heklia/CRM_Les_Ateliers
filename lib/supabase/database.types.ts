@@ -183,6 +183,40 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["prospect_segments"]["Insert"]>;
       };
+      prospect_assignments: {
+        Row: {
+          prospect_id: string;
+          user_id: string;
+          assigned_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          prospect_id: string;
+          user_id: string;
+          assigned_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["prospect_assignments"]["Insert"]>;
+      };
+      visite_assignments: {
+        Row: {
+          visite_id: string;
+          user_id: string;
+          assigned_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          visite_id: string;
+          user_id: string;
+          assigned_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["visite_assignments"]["Insert"]>;
+      };
       actions_suivantes: {
         Row: {
           id: string;

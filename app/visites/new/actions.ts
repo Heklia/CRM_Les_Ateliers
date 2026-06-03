@@ -77,7 +77,7 @@ export async function createVisitReport(
     return { error: "Prospect introuvable." };
   }
 
-  if (!canAccessCommercialData(profile, prospect.commercial_id)) {
+  if (!(await canAccessProspect(supabase, profile, validatedProspectId, prospect.commercial_id))) {
     return { error: "Ce prospect n'est pas rattache au commercial connecte." };
   }
 
@@ -131,6 +131,12 @@ export async function createVisitReport(
     return { error: "Impossible d'enregistrer le compte-rendu de visite." };
   }
 
+  await supabase.from("visite_assignments").insert({
+    visite_id: visit.id,
+    user_id: profile.id,
+    assigned_by: profile.id
+  });
+
   const prospectUpdate = {
     last_interaction_at: validatedVisitDate,
     interest_level: interestMap[validatedInterest],
@@ -171,6 +177,26 @@ export async function createVisitReport(
   }
 
   redirect("/visites");
+}
+
+async function canAccessProspect(
+  supabase: any,
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  prospectId: string,
+  commercialId: string
+) {
+  if (canAccessCommercialData(profile, commercialId)) {
+    return true;
+  }
+
+  const { data } = await supabase
+    .from("prospect_assignments")
+    .select("prospect_id")
+    .eq("prospect_id", prospectId)
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  return Boolean(data);
 }
 
 function buildSummary(formData: FormData) {
