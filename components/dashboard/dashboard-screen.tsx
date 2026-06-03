@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   CalendarCheck,
+  AlertTriangle,
   Flame,
   PhoneCall,
   ListTodo,
@@ -37,6 +38,7 @@ const periodOptions = [
 ] as const;
 
 const followUpPeriodOptions = [
+  { label: "En retard", value: "overdue" },
   { label: "Aujourd'hui", value: "today" },
   { label: "Cette semaine", value: "week" },
   { label: "Ce mois", value: "month" }
@@ -102,6 +104,7 @@ export function DashboardScreen({
   const visibleFollowUps = filtered.followUps.filter((followUp) =>
     isInFollowUpPeriod(followUp.dueAt, followUpPeriod)
   );
+  const overdueFollowUps = filtered.followUps.filter((followUp) => isOverdue(followUp.dueAt));
   const averagePriorityScore = filtered.prospects.length
     ? Math.round(
         filtered.prospects.reduce((sum, prospect) => sum + getProspectScore(prospect), 0) /
@@ -170,10 +173,11 @@ export function DashboardScreen({
         </label>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={Users} label="Prospects crees" value={`${filtered.prospects.length}`} detail="Nouveaux comptes sur la periode" />
         <StatCard icon={CalendarCheck} label="Visites realisees" value={`${filtered.visits.length}`} detail="Comptes-rendus saisis" />
         <StatCard icon={ListTodo} label="Actions a realiser" value={`${filtered.followUps.length}`} detail="Actions ouvertes" />
+        <StatCard icon={AlertTriangle} label="Actions en retard" value={`${overdueFollowUps.length}`} detail="Echeance depassee" />
         <StatCard icon={Target} label="Opportunites detectees" value={`${detectedOpportunities.length}`} detail="Hors simple identification" />
       </section>
 
@@ -220,6 +224,11 @@ export function DashboardScreen({
                     <p className="mt-1 text-xs text-muted">
                       {followUp.commercial} - {formatDate(followUp.dueAt)}
                     </p>
+                    {isOverdue(followUp.dueAt) ? (
+                      <div className="mt-2">
+                        <StatusPill tone="warning">En retard</StatusPill>
+                      </div>
+                    ) : null}
                   </div>
                   <a
                     className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white"
@@ -369,9 +378,14 @@ function createPeriodFilter(period: string) {
   };
 }
 
-function isInFollowUpPeriod(value: string, period: "today" | "week" | "month") {
+function isInFollowUpPeriod(value: string, period: "overdue" | "today" | "week" | "month") {
   const date = new Date(value);
   const now = new Date();
+
+  if (period === "overdue") {
+    return date < now;
+  }
+
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
@@ -385,6 +399,10 @@ function isInFollowUpPeriod(value: string, period: "today" | "week" | "month") {
   }
 
   return date >= start && date < end;
+}
+
+function isOverdue(value: string) {
+  return new Date(value) < new Date();
 }
 
 function getPotentialBySegment(items: ReportingProspect[]) {
