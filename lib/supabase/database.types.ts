@@ -14,7 +14,7 @@ export type Database = {
           id: string;
           email: string;
           full_name: string;
-          role: "admin" | "manager" | "commercial";
+          role: "lecteur" | "modification" | "admin";
           phone: string | null;
           is_active: boolean;
           created_at: string;
@@ -24,7 +24,7 @@ export type Database = {
           id: string;
           email: string;
           full_name: string;
-          role?: "admin" | "manager" | "commercial";
+          role?: "lecteur" | "modification" | "admin";
           phone?: string | null;
           is_active?: boolean;
           created_at?: string;

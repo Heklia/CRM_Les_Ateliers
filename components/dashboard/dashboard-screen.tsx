@@ -63,7 +63,7 @@ export function DashboardScreen({
   const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("30");
   const [followUpPeriod, setFollowUpPeriod] =
     useState<(typeof followUpPeriodOptions)[number]["value"]>("today");
-  const canFilterCommercials = profile.role === "admin" || profile.role === "manager";
+  const canFilterCommercials = profile.role === "admin";
 
   const commercials = useMemo(() => {
     return Array.from(

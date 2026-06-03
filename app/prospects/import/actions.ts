@@ -435,7 +435,7 @@ async function ensureUserProfile(user: {
     id: user.id,
     email,
     full_name: fullName,
-    role: "commercial",
+    role: "modification",
     is_active: true
   });
 

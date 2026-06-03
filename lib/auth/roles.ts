@@ -1,4 +1,4 @@
-export type AppRole = "admin" | "manager" | "commercial";
+export type AppRole = "lecteur" | "modification" | "admin";
 
 export type CurrentProfile = {
   id: string;
@@ -32,7 +32,7 @@ export async function getCurrentProfile(supabase: any): Promise<CurrentProfile |
         user.user_metadata?.name ??
         user.email?.split("@")[0] ??
         "Commercial",
-      role: "commercial"
+      role: "modification"
     };
   }
 
@@ -45,9 +45,17 @@ export async function getCurrentProfile(supabase: any): Promise<CurrentProfile |
 }
 
 export function canAccessCommercialData(profile: CurrentProfile, commercialId: string) {
-  return profile.role === "admin" || profile.role === "manager" || profile.id === commercialId;
+  return profile.role === "admin" || profile.id === commercialId;
+}
+
+export function canModifyCommercialData(profile: CurrentProfile, commercialId: string) {
+  return profile.role === "admin" || (profile.role === "modification" && profile.id === commercialId);
 }
 
 export function canSeeTeamData(profile: CurrentProfile) {
-  return profile.role === "admin" || profile.role === "manager";
+  return profile.role === "admin";
+}
+
+export function canModifyData(profile: CurrentProfile) {
+  return profile.role === "admin" || profile.role === "modification";
 }
