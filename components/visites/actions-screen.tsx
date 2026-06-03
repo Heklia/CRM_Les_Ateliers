@@ -112,60 +112,97 @@ export function ActionsScreen({ actions }: { actions: ActionListItem[] }) {
         </label>
       </section>
 
-      <div className="mb-3 text-sm text-muted">{filteredActions.length} action(s)</div>
+      <section className="rounded-lg border border-border bg-surface shadow-soft">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3 text-sm text-muted">
+          <span>{filteredActions.length} action(s)</span>
+        </div>
 
-      <div className="grid gap-4">
-        {filteredActions.map((action) => (
-          <article className="rounded-lg border border-border bg-surface p-5 shadow-soft" key={action.id}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold">{action.prospect}</h2>
-                  {action.segment ? <StatusPill>{segmentLabels[action.segment]}</StatusPill> : null}
-                </div>
-                <p className="mt-1 text-sm text-muted">{action.summary}</p>
-                <p className="mt-1 text-xs text-muted">Personne : {action.contact}</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {action.assignedUsers.length ? (
-                    action.assignedUsers.map((name) => (
-                      <span className="rounded-md bg-background px-2 py-1 text-xs font-medium" key={name}>
-                        {name}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-muted">Non affecte</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusPill>{action.type}</StatusPill>
-                <span className="text-sm text-muted">{formatDate(action.date)}</span>
-                <Link
-                  aria-label="Modifier la visite"
-                  className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-white text-muted hover:bg-background hover:text-foreground"
-                  href={`/visites/${action.id}/edit`}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1120px] text-left text-sm">
+            <thead className="text-xs uppercase text-muted">
+              <tr className="border-b border-border">
+                <th className="px-4 py-3">Prospect</th>
+                <th>Segment</th>
+                <th>Type</th>
+                <th>Personne</th>
+                <th>Resume</th>
+                <th>Personnes affectees</th>
+                <th>Date</th>
+                <th className="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredActions.map((action) => (
+                <tr
+                  className="border-b border-border last:border-0 hover:bg-background"
+                  key={action.id}
                 >
-                  <Pencil size={16} />
-                </Link>
-                <form action={deleteVisitAction}>
-                  <input name="visit_id" type="hidden" value={action.id} />
-                  <DeleteSubmitButton
-                    confirmMessage="Supprimer definitivement cette action ?"
-                    label="Supprimer"
-                  />
-                </form>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+                  <td className="px-4 py-3 font-semibold">{action.prospect}</td>
+                  <td>
+                    {action.segment ? (
+                      <StatusPill>{segmentLabels[action.segment]}</StatusPill>
+                    ) : (
+                      <span className="text-muted">Non renseigne</span>
+                    )}
+                  </td>
+                  <td>
+                    <StatusPill>{action.type}</StatusPill>
+                  </td>
+                  <td className="text-muted">{action.contact}</td>
+                  <td className="max-w-[280px] truncate text-muted" title={action.summary}>
+                    {action.summary}
+                  </td>
+                  <td>
+                    <AssignedUsers names={action.assignedUsers} />
+                  </td>
+                  <td className="text-muted">{formatDate(action.date)}</td>
+                  <td className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Link
+                        aria-label="Modifier la visite"
+                        className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-white text-muted hover:bg-background hover:text-foreground"
+                        href={`/visites/${action.id}/edit`}
+                      >
+                        <Pencil size={16} />
+                      </Link>
+                      <form action={deleteVisitAction}>
+                        <input name="visit_id" type="hidden" value={action.id} />
+                        <DeleteSubmitButton
+                          confirmMessage="Supprimer definitivement cette action ?"
+                          label="Supprimer"
+                        />
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {filteredActions.length === 0 ? (
-        <div className="rounded-lg border border-border bg-surface px-4 py-10 text-center text-sm text-muted">
+        <div className="mt-4 rounded-lg border border-border bg-surface px-4 py-10 text-center text-sm text-muted">
           Aucune action ne correspond aux filtres selectionnes.
         </div>
       ) : null}
     </main>
+  );
+}
+
+function AssignedUsers({ names }: { names: string[] }) {
+  if (!names.length) {
+    return <span className="text-muted">Non affecte</span>;
+  }
+
+  return (
+    <div className="flex max-w-[220px] flex-wrap gap-1">
+      {names.map((name) => (
+        <span className="rounded-md bg-background px-2 py-1 text-xs font-medium" key={name}>
+          {name}
+        </span>
+      ))}
+    </div>
   );
 }
 
