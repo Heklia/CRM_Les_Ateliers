@@ -34,3 +34,18 @@ select,
 textarea {
   font: inherit;
 }
+
+.app-main-content {
+  padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+}
+
+.mobile-bottom-nav {
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+  transform: translateZ(0);
+}
+
+@media (min-width: 768px) {
+  .app-main-content {
+    padding-bottom: 2rem;
+  }
+}

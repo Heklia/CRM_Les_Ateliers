@@ -26,7 +26,7 @@ export function AppChrome({
   return (
     <div className="min-h-screen">
       {header}
-      <div className="mx-auto w-full max-w-7xl px-3 pb-20 pt-4 sm:px-6 md:pb-8 md:pt-6 lg:px-8">
+      <div className="app-main-content mx-auto w-full max-w-7xl px-3 pt-4 sm:px-6 md:pt-6 lg:px-8">
         {children}
       </div>
       {quickAction}
