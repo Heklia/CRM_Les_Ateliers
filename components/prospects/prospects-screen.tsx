@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Pencil, Plus, Search, Upload } from "lucide-react";
+import { Download, Pencil, Plus, Search, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { segmentLabels, statusLabels } from "@/lib/constants";
+import { exportProspects, exportSegmentSummary } from "@/lib/exporters";
 import { prospects as mockProspects } from "@/lib/mock-data";
 import { calculatePriorityScore, getPriorityTone } from "@/lib/priority-score";
 import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
@@ -22,6 +24,7 @@ export type ProspectListItem = {
   pipelineStage: OpportunityStage;
   estimatedPotential: number;
   createdAt: string;
+  updatedAt: string;
   lastVisit: string | null;
   interest: number;
   projectTimeline: string;
@@ -88,6 +91,14 @@ export function ProspectsScreen({
               <Upload size={16} />
               Importer
             </Link>
+            <Button onClick={() => exportProspects(filteredProspects)} type="button" variant="secondary">
+              <Download size={16} />
+              Export CSV
+            </Button>
+            <Button onClick={() => exportSegmentSummary(filteredProspects)} type="button" variant="secondary">
+              <Download size={16} />
+              Synthese
+            </Button>
             <Link
               className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
               href="/prospects/new"

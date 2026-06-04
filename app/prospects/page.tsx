@@ -15,6 +15,7 @@ type ProspectRow = {
   pipeline_stage: string;
   estimated_potential: number | null;
   created_at: string;
+  updated_at: string;
   last_interaction_at: string | null;
   interest_level: number | null;
   project_timeline: string;
@@ -54,7 +55,7 @@ export default async function ProspectsPage() {
 
   const prospectsQuery = supabase
     .from("prospects")
-    .select("id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
+    .select("id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
     .order("updated_at", { ascending: false });
 
   const [{ data: prospects }, { data: contacts }, { data: users }, { data: segments }, { data: assignments }] =
@@ -109,6 +110,7 @@ export default async function ProspectsPage() {
     pipelineStage: prospect.pipeline_stage as OpportunityStage,
     estimatedPotential: prospect.estimated_potential ?? 0,
     createdAt: prospect.created_at,
+    updatedAt: prospect.updated_at,
     lastVisit: prospect.last_interaction_at,
     interest: prospect.interest_level ?? 0,
     projectTimeline: prospect.project_timeline,

@@ -2,22 +2,28 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Pencil, Plus, Search } from "lucide-react";
+import { Download, Pencil, Plus, Search } from "lucide-react";
 import { deleteVisitAction } from "@/app/visites/actions";
+import { Button } from "@/components/ui/button";
 import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { segmentLabels } from "@/lib/constants";
+import { exportVisits } from "@/lib/exporters";
 import type { SegmentCode } from "@/lib/types";
 
 export type ActionListItem = {
   id: string;
   prospect: string;
   contact: string;
+  commercial: string;
   assignedUsers: string[];
   date: string;
   type: string;
   summary: string;
+  interest: number;
+  createdAt: string;
+  updatedAt: string;
   segment: SegmentCode | null;
 };
 
@@ -54,13 +60,25 @@ export function ActionsScreen({ actions }: { actions: ActionListItem[] }) {
         title="Actions"
         description="Actions commerciales realisees : visites, appels, emails, salons et prochaines actions."
         action={
-          <Link
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
-            href="/visites/new"
-          >
-            <Plus size={16} />
-            Nouvelle action
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={() =>
+                exportVisits(filteredActions.map((action) => ({ ...action, company: action.prospect })))
+              }
+              type="button"
+              variant="secondary"
+            >
+              <Download size={16} />
+              Export CSV
+            </Button>
+            <Link
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
+              href="/visites/new"
+            >
+              <Plus size={16} />
+              Nouvelle action
+            </Link>
+          </div>
         }
       />
 

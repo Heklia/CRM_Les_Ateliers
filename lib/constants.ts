@@ -4,8 +4,8 @@ export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Prospects", href: "/prospects" },
   { label: "Actions", href: "/visites" },
+  { label: "A faire", href: "/actions-a-realiser" },
   { label: "Pipeline", href: "/pipeline", adminOnly: true },
-  { label: "Exports", href: "/exports" },
   { label: "Administration", href: "/admin", adminOnly: true }
 ];
 

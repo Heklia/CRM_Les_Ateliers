@@ -13,6 +13,9 @@ type VisitRow = {
   visite_date: string;
   type: string;
   resume: string;
+  niveau_interet: number | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type ProspectRow = {
@@ -53,7 +56,7 @@ export default async function VisitesPage() {
 
   const visitsQuery = supabase
     .from("visites")
-    .select("id, prospect_id, contact_id, commercial_id, visite_date, type, resume")
+    .select("id, prospect_id, contact_id, commercial_id, visite_date, type, resume, niveau_interet, created_at, updated_at")
     .order("visite_date", { ascending: false });
 
   const [{ data: visits }, { data: prospects }, { data: contacts }, { data: users }, { data: segments }, { data: assignments }] =
@@ -106,10 +109,14 @@ export default async function VisitesPage() {
       id: visit.id,
       prospect: prospect?.company_name ?? "Prospect",
       contact: visit.contact_id ? contactById.get(visit.contact_id) ?? "Non renseignee" : "Non renseignee",
+      commercial: userById.get(visit.commercial_id) ?? "Commercial",
       assignedUsers: assignedUsersByVisit.get(visit.id) ?? [userById.get(visit.commercial_id) ?? "Commercial"],
       date: visit.visite_date,
       type: visit.type,
       summary: visit.resume,
+      interest: visit.niveau_interet ?? 0,
+      createdAt: visit.created_at,
+      updatedAt: visit.updated_at,
       segment: prospect ? ((segmentById.get(prospect.segment_id) ?? null) as SegmentCode | null) : null
     };
   });
