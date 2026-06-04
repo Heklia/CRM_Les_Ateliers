@@ -173,6 +173,62 @@ export function DashboardScreen({
         </label>
       </section>
 
+      <section className="mb-6 rounded-lg border border-border bg-surface p-5 shadow-soft">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Actions a realiser</h2>
+          <StatusPill tone={visibleFollowUps.length ? "warning" : "success"}>
+            {visibleFollowUps.length}
+          </StatusPill>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {followUpPeriodOptions.map((option) => (
+            <button
+              className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                followUpPeriod === option.value
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-white text-muted hover:bg-background hover:text-foreground"
+              }`}
+              key={option.value}
+              onClick={() => setFollowUpPeriod(option.value)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {visibleFollowUps.length ? (
+            visibleFollowUps.map((followUp) => (
+              <article
+                className="flex items-center justify-between gap-3 rounded-md border border-border p-4"
+                key={followUp.id}
+              >
+                <div>
+                  <h3 className="text-sm font-semibold">{followUp.company}</h3>
+                  <p className="mt-1 text-xs text-muted">
+                    {followUp.commercial} - {formatDate(followUp.dueAt)}
+                  </p>
+                  {isOverdue(followUp.dueAt) ? (
+                    <div className="mt-2">
+                      <StatusPill tone="warning">En retard</StatusPill>
+                    </div>
+                  ) : null}
+                </div>
+                <a
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white"
+                  href={buildFollowUpHref(followUp)}
+                >
+                  <PhoneCall size={16} />
+                  Traiter
+                </a>
+              </article>
+            ))
+          ) : (
+            <p className="text-sm text-muted">Aucune action a realiser sur cette periode.</p>
+          )}
+        </div>
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={Users} label="Prospects crees" value={`${filtered.prospects.length}`} detail="Nouveaux comptes sur la periode" />
         <StatCard icon={CalendarCheck} label="Visites realisees" value={`${filtered.visits.length}`} detail="Comptes-rendus saisis" />
@@ -189,62 +245,6 @@ export function DashboardScreen({
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft xl:col-span-2">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Actions a realiser</h2>
-            <StatusPill tone={visibleFollowUps.length ? "warning" : "success"}>
-              {visibleFollowUps.length}
-            </StatusPill>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {followUpPeriodOptions.map((option) => (
-              <button
-                className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                  followUpPeriod === option.value
-                    ? "border-primary bg-primary text-white"
-                    : "border-border bg-white text-muted hover:bg-background hover:text-foreground"
-                }`}
-                key={option.value}
-                onClick={() => setFollowUpPeriod(option.value)}
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {visibleFollowUps.length ? (
-              visibleFollowUps.map((followUp) => (
-                <article
-                  className="flex items-center justify-between gap-3 rounded-md border border-border p-4"
-                  key={followUp.id}
-                >
-                  <div>
-                    <h3 className="text-sm font-semibold">{followUp.company}</h3>
-                    <p className="mt-1 text-xs text-muted">
-                      {followUp.commercial} - {formatDate(followUp.dueAt)}
-                    </p>
-                    {isOverdue(followUp.dueAt) ? (
-                      <div className="mt-2">
-                        <StatusPill tone="warning">En retard</StatusPill>
-                      </div>
-                    ) : null}
-                  </div>
-                  <a
-                    className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white"
-                    href={buildFollowUpHref(followUp)}
-                  >
-                    <PhoneCall size={16} />
-                    Traiter
-                  </a>
-                </article>
-              ))
-            ) : (
-              <p className="text-sm text-muted">Aucune action a realiser sur cette periode.</p>
-            )}
-          </div>
-        </div>
-
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <h2 className="text-base font-semibold">CA potentiel par segment</h2>
           <div className="mt-5 space-y-4">
