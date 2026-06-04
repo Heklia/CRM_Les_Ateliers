@@ -20,7 +20,7 @@ const periodOptions = [
 ] as const;
 
 export function FollowUpsScreen({ followUps }: { followUps: ReportingFollowUp[] }) {
-  const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("today");
+  const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("all");
   const [assignedUser, setAssignedUser] = useState("");
   const [segment, setSegment] = useState("");
 
