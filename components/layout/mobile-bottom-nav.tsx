@@ -3,10 +3,10 @@ import { BarChart3, ClipboardList, ListTodo, PlusCircle, Users } from "lucide-re
 
 const mobileItems = [
   { href: "/dashboard", label: "Accueil", icon: BarChart3 },
+  { href: "/actions-a-realiser", label: "A faire", icon: ListTodo },
   { href: "/prospects", label: "Prospects", icon: Users },
   { href: "/visites/new", label: "Action", icon: PlusCircle, primary: true },
-  { href: "/visites", label: "Actions", icon: ClipboardList },
-  { href: "/actions-a-realiser", label: "A faire", icon: ListTodo }
+  { href: "/visites", label: "Actions", icon: ClipboardList }
 ];
 
 export function MobileBottomNav() {
