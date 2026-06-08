@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 
 const prospectStatuses = ["en_cours", "qualifie", "client", "perdu"] as const;
 const prospectCategories = ["favori", "standard", "a_ecarter"] as const;
+const imageBucket = "prospect-images";
+const maxImageSize = 10 * 1024 * 1024;
 
 export async function deleteProspect(formData: FormData) {
   const supabase = createClient() as any;
@@ -130,6 +132,88 @@ export async function updateProspectCategory(formData: FormData) {
   revalidatePath("/exports");
 }
 
+export async function uploadProspectImage(
+  _previousState: { error?: string; success?: string },
+  formData: FormData
+) {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
+  const prospectId = requiredText(formData, "prospect_id", "Prospect");
+  const file = formData.get("image");
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  if (!prospectId.ok || !(file instanceof File) || file.size === 0) {
+    return { error: "Image obligatoire." };
+  }
+
+  if (!canModifyData(profile)) {
+    return { error: "Vous n'avez pas les droits pour ajouter une image." };
+  }
+
+  if (!file.type.startsWith("image/")) {
+    return { error: "Le fichier doit etre une image." };
+  }
+
+  if (file.size > maxImageSize) {
+    return { error: "L'image ne doit pas depasser 10 Mo." };
+  }
+
+  const { data: prospect, error: readError } = await supabase
+    .from("prospects")
+    .select("id, commercial_id, company_name")
+    .eq("id", prospectId.data)
+    .single();
+
+  if (
+    readError ||
+    !prospect ||
+    !(await canAccessProspect(supabase, profile, prospect.id, prospect.commercial_id))
+  ) {
+    return { error: "Prospect introuvable ou non autorise." };
+  }
+
+  const extension = getImageExtension(file);
+  const fileName = `${slugifyFilePart(prospect.company_name)}_${formatFileTimestamp(new Date())}.${extension}`;
+  const storagePath = `${prospect.id}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(imageBucket)
+    .upload(storagePath, file, {
+      contentType: file.type,
+      upsert: false
+    });
+
+  if (uploadError) {
+    return { error: "Impossible d'enregistrer l'image dans Supabase Storage." };
+  }
+
+  const { error: insertError } = await supabase.from("prospect_images").insert({
+    prospect_id: prospect.id,
+    commercial_id: prospect.commercial_id,
+    created_by: profile.id,
+    bucket_id: imageBucket,
+    storage_path: storagePath,
+    file_name: fileName,
+    original_file_name: file.name || null,
+    content_type: file.type,
+    file_size: file.size,
+    notes
+  });
+
+  if (insertError) {
+    await supabase.storage.from(imageBucket).remove([storagePath]);
+    return { error: "Image envoyee, mais impossible de la rattacher au prospect." };
+  }
+
+  revalidatePath(`/prospects/${prospect.id}`);
+  return { success: "Image ajoutee a la fiche prospect." };
+}
+
 async function canAccessProspect(
   supabase: any,
   profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
@@ -148,4 +232,58 @@ async function canAccessProspect(
     .maybeSingle();
 
   return Boolean(data);
+}
+
+function getImageExtension(file: File) {
+  const mimeExtensions: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/heic": "heic",
+    "image/heif": "heif"
+  };
+
+  if (mimeExtensions[file.type]) {
+    return mimeExtensions[file.type];
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return extension && /^[a-z0-9]{2,5}$/.test(extension) ? extension : "jpg";
+}
+
+function slugifyFilePart(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return normalized || "prospect";
+}
+
+function formatFileTimestamp(value: Date) {
+  const parts = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).formatToParts(value);
+
+  const byType = new Map(parts.map((part) => [part.type, part.value]));
+
+  return [
+    byType.get("year"),
+    byType.get("month"),
+    byType.get("day")
+  ].join("") + "_" + [
+    byType.get("hour"),
+    byType.get("minute"),
+    byType.get("second")
+  ].join("");
 }

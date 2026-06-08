@@ -201,6 +201,33 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["prospect_assignments"]["Insert"]>;
       };
+      prospect_images: {
+        Row: {
+          id: string;
+          prospect_id: string;
+          commercial_id: string;
+          created_by: string;
+          bucket_id: string;
+          storage_path: string;
+          file_name: string;
+          original_file_name: string | null;
+          content_type: string;
+          file_size: number;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["prospect_images"]["Row"]> & {
+          prospect_id: string;
+          commercial_id: string;
+          created_by: string;
+          storage_path: string;
+          file_name: string;
+          content_type: string;
+          file_size: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["prospect_images"]["Row"]>;
+      };
       visite_assignments: {
         Row: {
           visite_id: string;

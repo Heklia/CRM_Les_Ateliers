@@ -5,6 +5,7 @@ import { deleteProspect } from "@/app/prospects/[id]/actions";
 import { ResourceAssignmentsForm } from "@/components/admin/resource-assignments-form";
 import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
 import { ProspectCategoryForm } from "@/components/prospects/prospect-category-form";
+import { ProspectImagesPanel } from "@/components/prospects/prospect-images-panel";
 import { ProspectOpportunitiesPanel } from "@/components/prospects/prospect-opportunities-panel";
 import { ProspectStatusForm } from "@/components/prospects/prospect-status-form";
 import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
@@ -71,6 +72,15 @@ type ProspectAssignmentRow = {
   user_id: string;
 };
 
+type ProspectImageRow = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  original_file_name: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
 export default async function ProspectDetailPage({
   params
 }: {
@@ -89,6 +99,7 @@ export default async function ProspectDetailPage({
     { data: contacts },
     { data: visits },
     { data: opportunities },
+    { data: images },
     { data: users },
     { data: assignments }
   ] =
@@ -114,6 +125,11 @@ export default async function ProspectDetailPage({
         .select("id, prospect_id, title, description, stage, estimated_value, probability, expected_close_date, updated_at")
         .eq("prospect_id", params.id)
         .order("updated_at", { ascending: false }),
+      supabase
+        .from("prospect_images")
+        .select("id, storage_path, file_name, original_file_name, notes, created_at")
+        .eq("prospect_id", params.id)
+        .order("created_at", { ascending: false }),
       profile.role === "admin"
         ? supabase
             .from("users")
@@ -137,6 +153,7 @@ export default async function ProspectDetailPage({
   const contactRows = (contacts ?? []) as ContactRow[];
   const visitRows = (visits ?? []) as VisitRow[];
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
+  const imageRows = (images ?? []) as ProspectImageRow[];
   const userRows = (users ?? []) as UserRow[];
   const assignmentRows = (assignments ?? []) as ProspectAssignmentRow[];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
@@ -169,6 +186,22 @@ export default async function ProspectDetailPage({
     fullName: user.full_name,
     isActive: user.is_active
   }));
+  const imageItems = await Promise.all(
+    imageRows.map(async (image) => {
+      const { data } = await supabase.storage
+        .from("prospect-images")
+        .createSignedUrl(image.storage_path, 60 * 60);
+
+      return {
+        id: image.id,
+        fileName: image.file_name,
+        originalFileName: image.original_file_name,
+        notes: image.notes,
+        createdAt: image.created_at,
+        signedUrl: data?.signedUrl ?? null
+      };
+    })
+  );
 
   return (
     <main>
@@ -242,6 +275,12 @@ export default async function ProspectDetailPage({
 
         <ProspectOpportunitiesPanel
           opportunities={opportunityItems}
+          prospectId={prospectRow.id}
+        />
+
+        <ProspectImagesPanel
+          canModify={canModifyData(profile)}
+          images={imageItems}
           prospectId={prospectRow.id}
         />
 
