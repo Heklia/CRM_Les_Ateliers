@@ -4,6 +4,7 @@ import { CalendarPlus, Pencil } from "lucide-react";
 import { deleteProspect } from "@/app/prospects/[id]/actions";
 import { ResourceAssignmentsForm } from "@/components/admin/resource-assignments-form";
 import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
+import { ProspectCategoryForm } from "@/components/prospects/prospect-category-form";
 import { ProspectOpportunitiesPanel } from "@/components/prospects/prospect-opportunities-panel";
 import { ProspectStatusForm } from "@/components/prospects/prospect-status-form";
 import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
@@ -12,7 +13,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { canModifyData, getCurrentProfile } from "@/lib/auth/roles";
 import { opportunityStages, segmentLabels, statusLabels } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
-import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
+import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 type ProspectRow = {
   id: string;
@@ -21,6 +22,7 @@ type ProspectRow = {
   company_name: string;
   city: string | null;
   status: string;
+  category: string;
   interest_level: number | null;
   notes: string | null;
 };
@@ -93,7 +95,7 @@ export default async function ProspectDetailPage({
     await Promise.all([
       supabase
         .from("prospects")
-        .select("id, commercial_id, segment_id, company_name, city, status, interest_level, notes")
+        .select("id, commercial_id, segment_id, company_name, city, status, category, interest_level, notes")
         .eq("id", params.id)
         .single(),
       supabase.from("segments").select("id, code"),
@@ -207,6 +209,16 @@ export default async function ProspectDetailPage({
                 ) : (
                   <StatusPill>{statusLabels[prospectRow.status as ProspectStatus]}</StatusPill>
                 )}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted">Categorie</dt>
+              <dd>
+                <ProspectCategoryForm
+                  category={(prospectRow.category ?? "standard") as ProspectCategory}
+                  disabled={!canModifyData(profile)}
+                  prospectId={prospectRow.id}
+                />
               </dd>
             </div>
             <InfoRow

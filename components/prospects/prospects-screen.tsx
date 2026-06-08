@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Download, Pencil, Plus, Search, Upload } from "lucide-react";
+import { ProspectCategoryForm } from "@/components/prospects/prospect-category-form";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -10,7 +11,7 @@ import { segmentLabels, statusLabels } from "@/lib/constants";
 import { exportProspects, exportSegmentSummary } from "@/lib/exporters";
 import { prospects as mockProspects } from "@/lib/mock-data";
 import { calculatePriorityScore, getPriorityTone } from "@/lib/priority-score";
-import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
+import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 export type ProspectListItem = {
   id: string;
@@ -21,6 +22,7 @@ export type ProspectListItem = {
   city: string;
   segment: SegmentCode;
   status: ProspectStatus;
+  category: ProspectCategory;
   pipelineStage: OpportunityStage;
   estimatedPotential: number;
   createdAt: string;
@@ -35,8 +37,10 @@ export type ProspectListItem = {
 };
 
 export function ProspectsScreen({
+  canModify = true,
   prospects = mockProspects
 }: {
+  canModify?: boolean;
   prospects?: ProspectListItem[];
 }) {
   const [query, setQuery] = useState("");
@@ -182,10 +186,11 @@ export function ProspectsScreen({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[1060px] text-left text-sm">
             <thead className="text-xs uppercase text-muted">
               <tr className="border-b border-border">
                 <th className="px-4 py-3">Entreprise</th>
+                <th>Categorie</th>
                 <th>Segment</th>
                 <th>Ville</th>
                 <th>Contact principal</th>
@@ -200,7 +205,9 @@ export function ProspectsScreen({
               {filteredProspects.map((prospect) => (
                 <tr
                   className={`border-b border-border last:border-0 hover:bg-background ${
-                    prospect.status === "perdu" ? "bg-slate-50 text-muted opacity-70" : ""
+                    prospect.status === "perdu" || prospect.category === "a_ecarter"
+                      ? "bg-slate-50 text-muted opacity-70"
+                      : ""
                   }`}
                   key={prospect.id}
                 >
@@ -209,6 +216,14 @@ export function ProspectsScreen({
                       {prospect.company}
                     </Link>
                     <p className="mt-1 text-xs text-muted">{prospect.commercial}</p>
+                  </td>
+                  <td>
+                    <ProspectCategoryForm
+                      category={prospect.category}
+                      compact
+                      disabled={!canModify}
+                      prospectId={prospect.id}
+                    />
                   </td>
                   <td>{segmentLabels[prospect.segment]}</td>
                   <td>{prospect.city}</td>

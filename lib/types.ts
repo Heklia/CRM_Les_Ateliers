@@ -16,6 +16,8 @@ export type ProspectStatus =
   | "client"
   | "perdu";
 
+export type ProspectCategory = "favori" | "standard" | "a_ecarter";
+
 export type OpportunityStage =
   | "prospect_identifie"
   | "contact_etabli"

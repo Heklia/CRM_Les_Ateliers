@@ -1,4 +1,4 @@
-import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
+import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 export type ReportingProspect = {
   id: string;
@@ -9,6 +9,7 @@ export type ReportingProspect = {
   city: string;
   segment: SegmentCode;
   status: ProspectStatus;
+  category: ProspectCategory;
   pipelineStage: OpportunityStage;
   estimatedPotential: number;
   createdAt: string;
@@ -75,6 +76,7 @@ type ProspectRow = {
   company_name: string;
   city: string | null;
   status: string;
+  category: string;
   pipeline_stage: string;
   estimated_potential: number | null;
   created_at: string;
@@ -168,7 +170,7 @@ export async function getReportingData(supabase: any) {
   ] = await Promise.all([
     supabase
       .from("prospects")
-      .select("id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
+      .select("id, commercial_id, segment_id, company_name, city, status, category, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
       .order("created_at", { ascending: false }),
     supabase
       .from("contacts")
@@ -256,6 +258,7 @@ export async function getReportingData(supabase: any) {
     city: prospect.city ?? "",
     segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
+    category: (prospect.category ?? "standard") as ProspectCategory,
     pipelineStage: prospect.pipeline_stage as OpportunityStage,
     estimatedPotential: prospect.estimated_potential ?? 0,
     createdAt: prospect.created_at,

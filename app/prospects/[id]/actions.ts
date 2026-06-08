@@ -7,6 +7,7 @@ import { requiredEnum, requiredText } from "@/lib/forms/validation";
 import { createClient } from "@/lib/supabase/server";
 
 const prospectStatuses = ["en_cours", "qualifie", "client", "perdu"] as const;
+const prospectCategories = ["favori", "standard", "a_ecarter"] as const;
 
 export async function deleteProspect(formData: FormData) {
   const supabase = createClient() as any;
@@ -81,6 +82,47 @@ export async function updateProspectStatus(formData: FormData) {
       .eq("prospect_id", prospectId.data)
       .eq("status", "a_faire");
   }
+
+  revalidatePath(`/prospects/${prospectId.data}`);
+  revalidatePath("/prospects");
+  revalidatePath("/dashboard");
+  revalidatePath("/exports");
+}
+
+export async function updateProspectCategory(formData: FormData) {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
+  const prospectId = requiredText(formData, "prospect_id", "Prospect");
+  const category = requiredEnum(formData, "category", "Categorie", prospectCategories);
+
+  if (!prospectId.ok || !category.ok) {
+    return;
+  }
+
+  const { data: prospect, error: readError } = await supabase
+    .from("prospects")
+    .select("id, commercial_id")
+    .eq("id", prospectId.data)
+    .single();
+
+  if (
+    readError ||
+    !prospect ||
+    !canModifyData(profile) ||
+    !(await canAccessProspect(supabase, profile, prospect.id, prospect.commercial_id))
+  ) {
+    return;
+  }
+
+  await supabase
+    .from("prospects")
+    .update({ category: category.data })
+    .eq("id", prospectId.data);
 
   revalidatePath(`/prospects/${prospectId.data}`);
   revalidatePath("/prospects");

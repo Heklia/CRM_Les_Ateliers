@@ -1,5 +1,6 @@
 import {
   opportunityStageLabels,
+  prospectCategoryLabels,
   segmentLabels,
   statusLabels
 } from "@/lib/constants";
@@ -23,6 +24,7 @@ export function exportProspects(items: ReportingProspect[]) {
       contact_principal: prospect.contact,
       commercial: prospect.commercial,
       personnes_affectees: prospect.assignedUsers.join(", "),
+      categorie: prospectCategoryLabels[prospect.category],
       statut: statusLabels[prospect.status],
       pipeline: opportunityStageLabels[prospect.pipelineStage],
       potentiel_estime: prospect.estimatedPotential,

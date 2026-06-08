@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { ProspectsScreen, type ProspectListItem } from "@/components/prospects/prospects-screen";
-import { getCurrentProfile } from "@/lib/auth/roles";
+import { canModifyData, getCurrentProfile } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { scopeByCommercial } from "@/lib/supabase/role-filters";
-import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
+import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 type ProspectRow = {
   id: string;
@@ -12,6 +12,7 @@ type ProspectRow = {
   company_name: string;
   city: string | null;
   status: string;
+  category: string;
   pipeline_stage: string;
   estimated_potential: number | null;
   created_at: string;
@@ -55,7 +56,7 @@ export default async function ProspectsPage() {
 
   const prospectsQuery = supabase
     .from("prospects")
-    .select("id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
+    .select("id, commercial_id, segment_id, company_name, city, status, category, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
     .order("updated_at", { ascending: false });
 
   const [{ data: prospects }, { data: contacts }, { data: users }, { data: segments }, { data: assignments }] =
@@ -107,6 +108,7 @@ export default async function ProspectsPage() {
     city: prospect.city ?? "",
     segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
+    category: (prospect.category ?? "standard") as ProspectCategory,
     pipelineStage: prospect.pipeline_stage as OpportunityStage,
     estimatedPotential: prospect.estimated_potential ?? 0,
     createdAt: prospect.created_at,
@@ -120,5 +122,5 @@ export default async function ProspectsPage() {
     nextAction: ""
   }));
 
-  return <ProspectsScreen prospects={items} />;
+  return <ProspectsScreen canModify={canModifyData(profile)} prospects={items} />;
 }

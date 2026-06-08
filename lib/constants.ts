@@ -29,6 +29,12 @@ export const statusLabels = {
   perdu: "Perdu"
 } as const;
 
+export const prospectCategoryLabels = {
+  favori: "Favori",
+  standard: "Standard",
+  a_ecarter: "A ecarter"
+} as const;
+
 export const opportunityStages = [
   "prospect_identifie",
   "contact_etabli",

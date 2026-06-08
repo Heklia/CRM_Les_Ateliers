@@ -1,4 +1,4 @@
-import type { OpportunityStage, ProspectStatus, SegmentCode } from "@/lib/types";
+import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 export const prospects = [
   {
@@ -10,6 +10,7 @@ export const prospects = [
     city: "Nantes",
     segment: "bardage_decoratif" as SegmentCode,
     status: "qualifie" as ProspectStatus,
+    category: "favori" as ProspectCategory,
     pipelineStage: "contact_etabli" as OpportunityStage,
     estimatedPotential: 18000,
     createdAt: "2026-05-10",
@@ -31,6 +32,7 @@ export const prospects = [
     city: "Lyon",
     segment: "structure_mobilier" as SegmentCode,
     status: "en_cours" as ProspectStatus,
+    category: "standard" as ProspectCategory,
     pipelineStage: "devis_envoye" as OpportunityStage,
     estimatedPotential: 42000,
     createdAt: "2026-05-08",
@@ -52,6 +54,7 @@ export const prospects = [
     city: "Tours",
     segment: "usinage_3d" as SegmentCode,
     status: "contacte" as ProspectStatus,
+    category: "standard" as ProspectCategory,
     pipelineStage: "prospect_identifie" as OpportunityStage,
     estimatedPotential: 26000,
     createdAt: "2026-05-18",
@@ -73,6 +76,7 @@ export const prospects = [
     city: "Rennes",
     segment: "autres_agencements" as SegmentCode,
     status: "nouveau" as ProspectStatus,
+    category: "standard" as ProspectCategory,
     pipelineStage: "prospect_identifie" as OpportunityStage,
     estimatedPotential: 12000,
     createdAt: "2026-05-25",
@@ -94,6 +98,7 @@ export const prospects = [
     city: "Bordeaux",
     segment: "structure_mobilier" as SegmentCode,
     status: "qualifie" as ProspectStatus,
+    category: "standard" as ProspectCategory,
     pipelineStage: "devis_a_faire" as OpportunityStage,
     estimatedPotential: 35000,
     createdAt: "2026-04-29",

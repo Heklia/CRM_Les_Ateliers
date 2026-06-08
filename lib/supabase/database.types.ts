@@ -43,6 +43,7 @@ export type Database = {
           website: string | null;
           source: string;
           status: string;
+          category: "favori" | "standard" | "a_ecarter";
           pipeline_stage: string;
           address_line1: string | null;
           address_line2: string | null;
