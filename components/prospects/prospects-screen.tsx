@@ -7,7 +7,7 @@ import { ProspectCategoryForm } from "@/components/prospects/prospect-category-f
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
-import { segmentLabels, statusLabels } from "@/lib/constants";
+import { prospectCategoryLabels, segmentLabels, statusLabels } from "@/lib/constants";
 import { exportProspects, exportSegmentSummary } from "@/lib/exporters";
 import { prospects as mockProspects } from "@/lib/mock-data";
 import { calculatePriorityScore, getPriorityTone } from "@/lib/priority-score";
@@ -45,6 +45,7 @@ export function ProspectsScreen({
 }) {
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState("");
+  const [category, setCategory] = useState("");
   const [assignedUser, setAssignedUser] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<ProspectStatus[]>([
     "en_cours",
@@ -65,13 +66,14 @@ export function ProspectsScreen({
         normalizedQuery.length === 0 ||
         prospect.company.toLowerCase().includes(normalizedQuery);
       const matchesSegment = segment === "" || prospect.segment === segment;
+      const matchesCategory = category === "" || prospect.category === category;
       const matchesAssignedUser =
         assignedUser === "" || prospect.assignedUsers.includes(assignedUser);
       const matchesStatus = selectedStatuses.includes(prospect.status);
 
-      return matchesQuery && matchesSegment && matchesAssignedUser && matchesStatus;
+      return matchesQuery && matchesSegment && matchesCategory && matchesAssignedUser && matchesStatus;
     });
-  }, [assignedUser, prospects, query, segment, selectedStatuses]);
+  }, [assignedUser, category, prospects, query, segment, selectedStatuses]);
 
   function toggleStatus(status: ProspectStatus) {
     setSelectedStatuses((current) =>
@@ -115,7 +117,7 @@ export function ProspectsScreen({
       />
 
       <section className="rounded-lg border border-border bg-surface shadow-soft">
-        <div className="grid gap-3 border-b border-border p-4 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
+        <div className="grid gap-3 border-b border-border p-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.9fr]">
           <label className="relative block">
             <span className="sr-only">Rechercher par nom d'entreprise</span>
             <Search
@@ -139,6 +141,22 @@ export function ProspectsScreen({
             >
               <option value="">Tous les segments</option>
               {Object.entries(segmentLabels).map(([code, label]) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="sr-only">Filtrer par categorie</span>
+            <select
+              className="h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+              onChange={(event) => setCategory(event.target.value)}
+              value={category}
+            >
+              <option value="">Toutes les categories</option>
+              {Object.entries(prospectCategoryLabels).map(([code, label]) => (
                 <option key={code} value={code}>
                   {label}
                 </option>
