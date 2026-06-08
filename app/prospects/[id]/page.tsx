@@ -94,21 +94,17 @@ export default async function ProspectDetailPage({
   }
 
   const [
-    { data: prospect },
+    prospectResult,
     { data: segments },
     { data: contacts },
     { data: visits },
     { data: opportunities },
-    { data: images },
+    imagesResult,
     { data: users },
     { data: assignments }
   ] =
     await Promise.all([
-      supabase
-        .from("prospects")
-        .select("id, commercial_id, segment_id, company_name, city, status, category, interest_level, notes")
-        .eq("id", params.id)
-        .single(),
+      fetchProspect(supabase, params.id),
       supabase.from("segments").select("id, code"),
       supabase
         .from("contacts")
@@ -125,11 +121,7 @@ export default async function ProspectDetailPage({
         .select("id, prospect_id, title, description, stage, estimated_value, probability, expected_close_date, updated_at")
         .eq("prospect_id", params.id)
         .order("updated_at", { ascending: false }),
-      supabase
-        .from("prospect_images")
-        .select("id, storage_path, file_name, original_file_name, notes, created_at")
-        .eq("prospect_id", params.id)
-        .order("created_at", { ascending: false }),
+      fetchProspectImages(supabase, params.id),
       profile.role === "admin"
         ? supabase
             .from("users")
@@ -144,6 +136,8 @@ export default async function ProspectDetailPage({
         : Promise.resolve({ data: [] })
     ]);
 
+  const prospect = prospectResult.data;
+
   if (!prospect) {
     notFound();
   }
@@ -153,7 +147,7 @@ export default async function ProspectDetailPage({
   const contactRows = (contacts ?? []) as ContactRow[];
   const visitRows = (visits ?? []) as VisitRow[];
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
-  const imageRows = (images ?? []) as ProspectImageRow[];
+  const imageRows = (imagesResult.data ?? []) as ProspectImageRow[];
   const userRows = (users ?? []) as UserRow[];
   const assignmentRows = (assignments ?? []) as ProspectAssignmentRow[];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
@@ -249,7 +243,7 @@ export default async function ProspectDetailPage({
               <dd>
                 <ProspectCategoryForm
                   category={(prospectRow.category ?? "standard") as ProspectCategory}
-                  disabled={!canModifyData(profile)}
+                  disabled={!canModifyData(profile) || !prospectResult.hasCategoryColumn}
                   prospectId={prospectRow.id}
                 />
               </dd>
@@ -336,4 +330,63 @@ function formatDate(value: string) {
     month: "2-digit",
     year: "numeric"
   }).format(new Date(value));
+}
+
+async function fetchProspect(supabase: ReturnType<typeof createClient>, prospectId: string) {
+  const prospectsTable = supabase.from("prospects") as any;
+  const selectWithCategory =
+    "id, commercial_id, segment_id, company_name, city, status, category, interest_level, notes";
+  const selectWithoutCategory =
+    "id, commercial_id, segment_id, company_name, city, status, interest_level, notes";
+
+  const result = await prospectsTable
+    .select(selectWithCategory)
+    .eq("id", prospectId)
+    .single();
+
+  if (!isMissingSchemaError(result.error, "category")) {
+    return {
+      data: result.data
+        ? ({ ...result.data, category: result.data.category ?? "standard" } as ProspectRow)
+        : null,
+      hasCategoryColumn: true
+    };
+  }
+
+  const fallback = await prospectsTable
+    .select(selectWithoutCategory)
+    .eq("id", prospectId)
+    .single();
+
+  return {
+    data: fallback.data
+      ? ({ ...fallback.data, category: "standard" } as ProspectRow)
+      : null,
+    hasCategoryColumn: false
+  };
+}
+
+async function fetchProspectImages(supabase: ReturnType<typeof createClient>, prospectId: string) {
+  const imagesTable = supabase.from("prospect_images") as any;
+  const result = await imagesTable
+    .select("id, storage_path, file_name, original_file_name, notes, created_at")
+    .eq("prospect_id", prospectId)
+    .order("created_at", { ascending: false });
+
+  if (isMissingSchemaError(result.error, "prospect_images")) {
+    return { data: [] as ProspectImageRow[] };
+  }
+
+  return { data: (result.data ?? []) as ProspectImageRow[] };
+}
+
+function isMissingSchemaError(error: unknown, name: string) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+
+  return code === "42703" || code === "42P01" || message.includes(name);
 }

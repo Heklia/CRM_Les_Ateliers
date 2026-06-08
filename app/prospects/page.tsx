@@ -54,14 +54,10 @@ export default async function ProspectsPage() {
     redirect("/login");
   }
 
-  const prospectsQuery = supabase
-    .from("prospects")
-    .select("id, commercial_id, segment_id, company_name, city, status, category, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
-    .order("updated_at", { ascending: false });
+  const prospectResult = await fetchProspects(supabase, profile);
 
-  const [{ data: prospects }, { data: contacts }, { data: users }, { data: segments }, { data: assignments }] =
+  const [{ data: contacts }, { data: users }, { data: segments }, { data: assignments }] =
     await Promise.all([
-      scopeByCommercial(prospectsQuery, profile),
       scopeByCommercial(
         supabase
           .from("contacts")
@@ -74,7 +70,7 @@ export default async function ProspectsPage() {
       supabase.from("prospect_assignments").select("prospect_id, user_id")
     ]);
 
-  const prospectRows = (prospects ?? []) as ProspectRow[];
+  const prospectRows = (prospectResult.data ?? []) as ProspectRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const userRows = (users ?? []) as UserRow[];
   const segmentRows = (segments ?? []) as SegmentRow[];
@@ -122,5 +118,55 @@ export default async function ProspectsPage() {
     nextAction: ""
   }));
 
-  return <ProspectsScreen canModify={canModifyData(profile)} prospects={items} />;
+  return (
+    <ProspectsScreen
+      canModify={canModifyData(profile) && prospectResult.hasCategoryColumn}
+      prospects={items}
+    />
+  );
+}
+
+async function fetchProspects(
+  supabase: ReturnType<typeof createClient>,
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>
+) {
+  const selectWithCategory =
+    "id, commercial_id, segment_id, company_name, city, status, category, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity";
+  const selectWithoutCategory =
+    "id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity";
+
+  const queryWithCategory = supabase
+    .from("prospects")
+    .select(selectWithCategory)
+    .order("updated_at", { ascending: false });
+  const result = await scopeByCommercial(queryWithCategory, profile);
+
+  if (!isMissingCategoryError(result.error)) {
+    return { data: result.data as ProspectRow[] | null, hasCategoryColumn: true };
+  }
+
+  const queryWithoutCategory = supabase
+    .from("prospects")
+    .select(selectWithoutCategory)
+    .order("updated_at", { ascending: false });
+  const fallback = await scopeByCommercial(queryWithoutCategory, profile);
+
+  return {
+    data: ((fallback.data ?? []) as Omit<ProspectRow, "category">[]).map((prospect) => ({
+      ...prospect,
+      category: "standard"
+    })),
+    hasCategoryColumn: false
+  };
+}
+
+function isMissingCategoryError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+
+  return code === "42703" || message.includes("category");
 }

@@ -157,8 +157,8 @@ type FollowUpRow = {
 };
 
 export async function getReportingData(supabase: any) {
+  const prospectsResult = await fetchReportingProspects(supabase);
   const [
-    { data: prospects },
     { data: contacts },
     { data: users },
     { data: segments },
@@ -168,10 +168,6 @@ export async function getReportingData(supabase: any) {
     { data: prospectAssignments },
     { data: visitAssignments }
   ] = await Promise.all([
-    supabase
-      .from("prospects")
-      .select("id, commercial_id, segment_id, company_name, city, status, category, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity")
-      .order("created_at", { ascending: false }),
     supabase
       .from("contacts")
       .select("id, prospect_id, first_name, last_name, commercial_id, is_primary")
@@ -194,7 +190,7 @@ export async function getReportingData(supabase: any) {
     supabase.from("visite_assignments").select("visite_id, user_id")
   ]);
 
-  const prospectRows = (prospects ?? []) as ProspectRow[];
+  const prospectRows = (prospectsResult.data ?? []) as ProspectRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const userRows = (users ?? []) as UserRow[];
   const segmentRows = (segments ?? []) as SegmentRow[];
@@ -342,4 +338,43 @@ export async function getReportingData(supabase: any) {
     prospects: mappedProspects,
     visits: mappedVisits
   };
+}
+
+async function fetchReportingProspects(supabase: any) {
+  const selectWithCategory =
+    "id, commercial_id, segment_id, company_name, city, status, category, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity";
+  const selectWithoutCategory =
+    "id, commercial_id, segment_id, company_name, city, status, pipeline_stage, estimated_potential, created_at, updated_at, last_interaction_at, interest_level, project_timeline, capacity_fit, recurrence_potential, need_maturity";
+
+  const result = await supabase
+    .from("prospects")
+    .select(selectWithCategory)
+    .order("created_at", { ascending: false });
+
+  if (!isMissingCategoryError(result.error)) {
+    return { data: result.data as ProspectRow[] | null };
+  }
+
+  const fallback = await supabase
+    .from("prospects")
+    .select(selectWithoutCategory)
+    .order("created_at", { ascending: false });
+
+  return {
+    data: ((fallback.data ?? []) as Omit<ProspectRow, "category">[]).map((prospect) => ({
+      ...prospect,
+      category: "standard"
+    }))
+  };
+}
+
+function isMissingCategoryError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+
+  return code === "42703" || message.includes("category");
 }
