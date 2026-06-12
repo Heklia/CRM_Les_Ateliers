@@ -141,14 +141,7 @@ export async function GET(request: Request) {
   const baseUrl = getBaseUrl();
   const sendResults = await Promise.all(
     userRows.map(async (user) => {
-      const group = tasksByUser.get(user.id);
-      const total = group
-        ? group.overdue.length + group.today.length + group.upcoming.length
-        : 0;
-
-      if (!group || total === 0) {
-        return { email: user.email, skipped: true };
-      }
+      const group = tasksByUser.get(user.id) ?? { overdue: [], today: [], upcoming: [] };
 
       const html = renderEmail({
         baseUrl,
@@ -188,7 +181,6 @@ export async function GET(request: Request) {
     date: todayKey,
     users: userRows.length,
     sent: sendResults.filter((result) => "sent" in result).length,
-    skipped: sendResults.filter((result) => "skipped" in result).length,
     errors: sendResults.filter((result) => "error" in result)
   });
 }
