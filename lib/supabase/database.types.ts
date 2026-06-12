@@ -17,6 +17,7 @@ export type Database = {
           role: "lecteur" | "modification" | "admin";
           phone: string | null;
           is_active: boolean;
+          daily_task_email_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -27,6 +28,7 @@ export type Database = {
           role?: "lecteur" | "modification" | "admin";
           phone?: string | null;
           is_active?: boolean;
+          daily_task_email_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };

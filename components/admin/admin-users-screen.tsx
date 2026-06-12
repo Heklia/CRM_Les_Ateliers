@@ -14,6 +14,7 @@ type AdminUser = {
   role: AppRole;
   phone: string | null;
   isActive: boolean;
+  dailyTaskEmailEnabled: boolean;
 };
 
 const initialState: { error?: string; success?: string } = {};
@@ -72,6 +73,14 @@ function UserRow({ user }: { user: AdminUser }) {
         <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
           <input defaultChecked={user.isActive} name="is_active" type="checkbox" />
           Actif
+        </label>
+        <label className="flex min-h-11 items-center gap-2 text-sm font-medium lg:col-span-2">
+          <input
+            defaultChecked={user.dailyTaskEmailEnabled}
+            name="daily_task_email_enabled"
+            type="checkbox"
+          />
+          Email quotidien taches
         </label>
         <div className="flex flex-wrap justify-end gap-2 lg:col-span-5">
           <SubmitButton icon="save" label="Enregistrer" />

@@ -12,6 +12,7 @@ type UserRow = {
   role: AppRole;
   phone: string | null;
   is_active: boolean;
+  daily_task_email_enabled: boolean;
 };
 
 type ProspectRow = {
@@ -52,16 +53,13 @@ export default async function AdminPage() {
   }
 
   const [
-    { data: users },
+    usersResult,
     { data: prospects },
     { data: visits },
     { data: prospectAssignments },
     { data: visitAssignments }
   ] = await Promise.all([
-    supabase
-      .from("users")
-      .select("id, email, full_name, role, phone, is_active")
-      .order("full_name", { ascending: true }),
+    fetchUsers(supabase),
     supabase
       .from("prospects")
       .select("id, company_name, city, commercial_id")
@@ -75,13 +73,14 @@ export default async function AdminPage() {
     supabase.from("visite_assignments").select("visite_id, user_id")
   ]);
 
-  const items = ((users ?? []) as UserRow[]).map((user) => ({
+  const items = ((usersResult.data ?? []) as UserRow[]).map((user) => ({
     id: user.id,
     email: user.email,
     fullName: user.full_name,
     role: user.role,
     phone: user.phone,
-    isActive: user.is_active
+    isActive: user.is_active,
+    dailyTaskEmailEnabled: user.daily_task_email_enabled ?? true
   }));
   const userById = new Map(items.map((user) => [user.id, user.fullName]));
   const prospectRows = (prospects ?? []) as ProspectRow[];
@@ -120,6 +119,36 @@ export default async function AdminPage() {
       </div>
     </main>
   );
+}
+
+async function fetchUsers(supabase: any) {
+  const withPreference = await supabase
+    .from("users")
+    .select("id, email, full_name, role, phone, is_active, daily_task_email_enabled")
+    .order("full_name", { ascending: true });
+
+  if (!isMissingPreferenceError(withPreference.error)) {
+    return { data: withPreference.data as UserRow[] | null };
+  }
+
+  const fallback = await supabase
+    .from("users")
+    .select("id, email, full_name, role, phone, is_active")
+    .order("full_name", { ascending: true });
+
+  return {
+    data: ((fallback.data ?? []) as Omit<UserRow, "daily_task_email_enabled">[]).map((user) => ({
+      ...user,
+      daily_task_email_enabled: true
+    }))
+  };
+}
+
+function isMissingPreferenceError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+  return code === "42703" || message.includes("daily_task_email_enabled");
 }
 
 function groupAssignments<T extends { user_id: string }>(

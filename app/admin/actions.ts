@@ -113,6 +113,7 @@ export async function updateUser(
   if (!admin) return missingServiceRoleError();
 
   const isActive = formData.get("is_active") === "on";
+  const dailyTaskEmailEnabled = formData.get("daily_task_email_enabled") === "on";
   const { error: authError } = await admin.auth.admin.updateUserById(userId.data, {
     email: email.data,
     user_metadata: { full_name: fullName.data }
@@ -123,18 +124,33 @@ export async function updateUser(
   }
 
   const usersTable = admin.from("users") as any;
+  const updatePayload = {
+    email: email.data,
+    full_name: fullName.data,
+    role: role.data as AppRole,
+    phone: optionalText(formData, "phone"),
+    is_active: isActive,
+    daily_task_email_enabled: dailyTaskEmailEnabled
+  };
   const { error } = await usersTable
     .update({
-      email: email.data,
-      full_name: fullName.data,
-      role: role.data as AppRole,
-      phone: optionalText(formData, "phone"),
-      is_active: isActive
+      ...updatePayload
     })
     .eq("id", userId.data);
 
   if (error) {
-    return { error: `Impossible de mettre a jour le profil : ${error.message}` };
+    if (!isMissingDailyTaskEmailColumn(error)) {
+      return { error: `Impossible de mettre a jour le profil : ${error.message}` };
+    }
+
+    const { daily_task_email_enabled: _ignored, ...fallbackPayload } = updatePayload;
+    const { error: fallbackError } = await usersTable
+      .update(fallbackPayload)
+      .eq("id", userId.data);
+
+    if (fallbackError) {
+      return { error: `Impossible de mettre a jour le profil : ${fallbackError.message}` };
+    }
   }
 
   revalidatePath("/admin");
@@ -342,18 +358,36 @@ async function upsertUserProfile(
   }
 ): Promise<AdminUserState> {
   const usersTable = admin.from("users") as any;
-  const { error } = await usersTable.upsert({
+  const profilePayload = {
     id: user.id,
     email: user.email,
     full_name: user.fullName,
     role: user.role,
     phone: user.phone,
-    is_active: true
-  });
+    is_active: true,
+    daily_task_email_enabled: true
+  };
+  const { error } = await usersTable.upsert(profilePayload);
 
   if (error) {
-    return { error: `Profil applicatif impossible a creer : ${error.message}` };
+    if (!isMissingDailyTaskEmailColumn(error)) {
+      return { error: `Profil applicatif impossible a creer : ${error.message}` };
+    }
+
+    const { daily_task_email_enabled: _ignored, ...fallbackPayload } = profilePayload;
+    const { error: fallbackError } = await usersTable.upsert(fallbackPayload);
+
+    if (fallbackError) {
+      return { error: `Profil applicatif impossible a creer : ${fallbackError.message}` };
+    }
   }
 
   return {};
+}
+
+function isMissingDailyTaskEmailColumn(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+  return code === "42703" || message.includes("daily_task_email_enabled");
 }
