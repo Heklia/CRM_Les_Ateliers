@@ -244,10 +244,20 @@ export default async function ProspectDetailPage({
                 <ProspectCategoryForm
                   category={(prospectRow.category ?? "standard") as ProspectCategory}
                   disabled={!canModifyData(profile) || !prospectResult.hasCategoryColumn}
+                  disabledReason={
+                    prospectResult.hasCategoryColumn
+                      ? "Votre role ne permet pas de modifier la categorie"
+                      : "Migration Supabase 014_prospect_category.sql manquante"
+                  }
                   prospectId={prospectRow.id}
                 />
               </dd>
             </div>
+            {!prospectResult.hasCategoryColumn ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                La categorisation sera modifiable apres execution de la migration Supabase 014.
+              </p>
+            ) : null}
             <InfoRow
               label="Interet"
               value={prospectRow.interest_level ? `${prospectRow.interest_level}/5` : "Non renseigne"}

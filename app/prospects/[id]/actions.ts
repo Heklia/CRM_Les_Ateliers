@@ -121,10 +121,19 @@ export async function updateProspectCategory(formData: FormData) {
     return;
   }
 
-  await supabase
+  const { error: updateError } = await supabase
     .from("prospects")
     .update({ category: category.data })
     .eq("id", prospectId.data);
+
+  if (updateError) {
+    console.error("updateProspectCategory failed", {
+      code: updateError.code,
+      message: updateError.message,
+      prospectId: prospectId.data
+    });
+    return;
+  }
 
   revalidatePath(`/prospects/${prospectId.data}`);
   revalidatePath("/prospects");

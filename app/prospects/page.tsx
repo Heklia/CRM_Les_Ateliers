@@ -121,6 +121,7 @@ export default async function ProspectsPage() {
   return (
     <ProspectsScreen
       canModify={canModifyData(profile) && prospectResult.hasCategoryColumn}
+      categoryAvailable={prospectResult.hasCategoryColumn}
       prospects={items}
     />
   );

@@ -17,17 +17,22 @@ export function ProspectCategoryForm({
   prospectId,
   category,
   compact = false,
-  disabled = false
+  disabled = false,
+  disabledReason = "Modification non disponible"
 }: {
   prospectId: string;
   category: ProspectCategory;
   compact?: boolean;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   return (
     <form action={updateProspectCategory}>
       <input name="prospect_id" type="hidden" value={prospectId} />
-      <div className="inline-flex items-center gap-1 rounded-md border border-border bg-white p-1">
+      <div
+        className="inline-flex items-center gap-1 rounded-md border border-border bg-white p-1"
+        title={disabled ? disabledReason : undefined}
+      >
         {categories.map((item) => {
           const Icon = item.icon;
           const active = item.value === category;
@@ -39,6 +44,7 @@ export function ProspectCategoryForm({
               className={item.className}
               compact={compact}
               disabled={disabled}
+              disabledReason={disabledReason}
               key={item.value}
             >
               <Icon size={compact ? 15 : 17} />
@@ -56,7 +62,8 @@ function CategoryButton({
   children,
   className,
   compact,
-  disabled
+  disabled,
+  disabledReason
 }: {
   active: boolean;
   category: ProspectCategory;
@@ -64,6 +71,7 @@ function CategoryButton({
   className: string;
   compact: boolean;
   disabled: boolean;
+  disabledReason: string;
 }) {
   const { pending } = useFormStatus();
 
@@ -79,7 +87,7 @@ function CategoryButton({
       }`}
       disabled={pending || disabled}
       name="category"
-      title={prospectCategoryLabels[category]}
+      title={disabled ? disabledReason : prospectCategoryLabels[category]}
       type="submit"
       value={category}
     >

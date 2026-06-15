@@ -38,9 +38,11 @@ export type ProspectListItem = {
 
 export function ProspectsScreen({
   canModify = true,
+  categoryAvailable = true,
   prospects = mockProspects
 }: {
   canModify?: boolean;
+  categoryAvailable?: boolean;
   prospects?: ProspectListItem[];
 }) {
   const [query, setQuery] = useState("");
@@ -117,6 +119,14 @@ export function ProspectsScreen({
       />
 
       <section className="rounded-lg border border-border bg-surface shadow-soft">
+        {!categoryAvailable ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            La categorisation des prospects est desactivee car la migration Supabase
+            <span className="font-semibold"> 014_prospect_category.sql </span>
+            n'a pas encore ete appliquee.
+          </div>
+        ) : null}
+
         <div className="grid gap-3 border-b border-border p-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.9fr]">
           <label className="relative block">
             <span className="sr-only">Rechercher par nom d'entreprise</span>
@@ -240,6 +250,11 @@ export function ProspectsScreen({
                       category={prospect.category}
                       compact
                       disabled={!canModify}
+                      disabledReason={
+                        categoryAvailable
+                          ? "Votre role ne permet pas de modifier la categorie"
+                          : "Migration Supabase 014_prospect_category.sql manquante"
+                      }
                       prospectId={prospect.id}
                     />
                   </td>
