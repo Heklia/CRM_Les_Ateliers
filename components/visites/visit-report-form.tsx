@@ -54,6 +54,7 @@ const interestOptions = [
 
 export function VisitReportForm({
   contacts,
+  followUpId = "",
   initialOpportunityId = "",
   initialProspectId = "",
   opportunities,
@@ -61,6 +62,7 @@ export function VisitReportForm({
   prospects
 }: {
   contacts: ContactOption[];
+  followUpId?: string;
   initialOpportunityId?: string;
   initialProspectId?: string;
   opportunities: OpportunityOption[];
@@ -103,6 +105,7 @@ export function VisitReportForm({
       ) : null}
 
       {previousAction ? <PreviousActionReminder previousAction={previousAction} /> : null}
+      {followUpId ? <input name="follow_up_id" type="hidden" value={followUpId} /> : null}
 
       <label className="block text-sm font-medium">
         Prospect

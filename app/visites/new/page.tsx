@@ -49,6 +49,7 @@ export default async function NewVisitPage({
 
       <VisitReportForm
         contacts={contacts ?? []}
+        followUpId={searchParams?.follow_up_id ?? ""}
         initialOpportunityId={initialOpportunityId}
         initialProspectId={initialProspectId}
         opportunities={opportunities ?? []}

@@ -85,7 +85,7 @@ export function DashboardScreen({
       ),
       visits: visits.filter((visit) => byCommercial(visit.commercial) && inPeriod(visit.date)),
       followUps: followUps.filter(
-        (followUp) => byCommercial(followUp.commercial) && followUp.status === "a_faire"
+        (followUp) => byCommercial(followUp.commercial) && isOpenFollowUp(followUp)
       ),
       opportunities: opportunities.filter(
         (opportunity) => byCommercial(opportunity.commercial) && inPeriod(opportunity.createdAt)
@@ -104,7 +104,7 @@ export function DashboardScreen({
   const visibleFollowUps = filtered.followUps.filter((followUp) =>
     isInFollowUpPeriod(followUp.dueAt, followUpPeriod)
   );
-  const overdueFollowUps = filtered.followUps.filter((followUp) => isOverdue(followUp.dueAt));
+  const overdueFollowUps = filtered.followUps.filter((followUp) => followUp.status === "en_retard");
   const averagePriorityScore = filtered.prospects.length
     ? Math.round(
         filtered.prospects.reduce((sum, prospect) => sum + getProspectScore(prospect), 0) /
@@ -208,7 +208,7 @@ export function DashboardScreen({
                   <p className="mt-1 text-xs text-muted">
                     {followUp.commercial} - {formatDate(followUp.dueAt)}
                   </p>
-                  {isOverdue(followUp.dueAt) ? (
+                  {followUp.status === "en_retard" ? (
                     <div className="mt-2">
                       <StatusPill tone="warning">En retard</StatusPill>
                     </div>
@@ -380,19 +380,22 @@ function createPeriodFilter(period: string) {
 
 function isInFollowUpPeriod(value: string, period: "overdue" | "today" | "week" | "month") {
   const date = new Date(value);
-  const now = new Date();
+  const status = getFollowUpStatusFromDate(value);
 
   if (period === "overdue") {
-    return date < now;
+    return status === "en_retard";
   }
 
+  if (period === "today") {
+    return status === "en_cours";
+  }
+
+  const now = new Date();
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
 
-  if (period === "today") {
-    end.setDate(start.getDate() + 1);
-  } else if (period === "week") {
+  if (period === "week") {
     end.setDate(start.getDate() + 7);
   } else {
     end.setMonth(start.getMonth() + 1);
@@ -401,8 +404,23 @@ function isInFollowUpPeriod(value: string, period: "overdue" | "today" | "week" 
   return date >= start && date < end;
 }
 
-function isOverdue(value: string) {
-  return new Date(value) < new Date();
+function isOpenFollowUp(followUp: ReportingFollowUp) {
+  return followUp.status !== "terminee" && followUp.status !== "annulee";
+}
+
+function getFollowUpStatusFromDate(value: string) {
+  const dueKey = getDateKey(value);
+  const todayKey = getDateKey(new Date().toISOString());
+
+  if (dueKey < todayKey) return "en_retard";
+  if (dueKey === todayKey) return "en_cours";
+  return "a_faire";
+}
+
+function getDateKey(value: string) {
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+  return local.toISOString().slice(0, 10);
 }
 
 function getPotentialBySegment(items: ReportingProspect[]) {

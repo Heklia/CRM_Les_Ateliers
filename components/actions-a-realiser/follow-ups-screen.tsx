@@ -19,6 +19,14 @@ const periodOptions = [
   { label: "Tout", value: "all" }
 ] as const;
 
+const followUpStatusLabels = {
+  a_faire: "A faire",
+  en_cours: "En cours",
+  en_retard: "En retard",
+  terminee: "Finalisee",
+  annulee: "Annulee"
+} as const;
+
 export function FollowUpsScreen({ followUps }: { followUps: ReportingFollowUp[] }) {
   const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("all");
   const [assignedUser, setAssignedUser] = useState("");
@@ -31,7 +39,7 @@ export function FollowUpsScreen({ followUps }: { followUps: ReportingFollowUp[] 
 
   const filteredFollowUps = useMemo(() => {
     return followUps.filter((followUp) => {
-      const matchesStatus = followUp.status === "a_faire";
+      const matchesStatus = isOpenFollowUp(followUp);
       const matchesPeriod = period === "all" || isInPeriod(followUp.dueAt, period);
       const matchesAssignedUser =
         assignedUser === "" || followUp.assignedUsers.includes(assignedUser);
@@ -147,8 +155,8 @@ export function FollowUpsScreen({ followUps }: { followUps: ReportingFollowUp[] 
                     {formatDate(followUp.dueAt)}
                   </td>
                   <td>
-                    <StatusPill tone={isOverdue(followUp.dueAt) ? "warning" : "neutral"}>
-                      {isOverdue(followUp.dueAt) ? "En retard" : "A faire"}
+                    <StatusPill tone={getFollowUpTone(followUp)}>
+                      {followUpStatusLabels[followUp.status]}
                     </StatusPill>
                   </td>
                   <td className="text-right">
@@ -207,19 +215,22 @@ function AssignedUsers({ names }: { names: string[] }) {
 
 function isInPeriod(value: string, period: "overdue" | "today" | "week" | "month") {
   const date = new Date(value);
-  const now = new Date();
+  const status = getFollowUpStatusFromDate(value);
 
   if (period === "overdue") {
-    return isOverdue(value);
+    return status === "en_retard";
   }
 
+  if (period === "today") {
+    return status === "en_cours";
+  }
+
+  const now = new Date();
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
 
   const end = new Date(start);
-  if (period === "today") {
-    end.setDate(start.getDate() + 1);
-  } else if (period === "week") {
+  if (period === "week") {
     end.setDate(start.getDate() + 7);
   } else {
     end.setMonth(start.getMonth() + 1);
@@ -229,7 +240,32 @@ function isInPeriod(value: string, period: "overdue" | "today" | "week" | "month
 }
 
 function isOverdue(value: string) {
-  return new Date(value) < new Date();
+  return getFollowUpStatusFromDate(value) === "en_retard";
+}
+
+function isOpenFollowUp(followUp: ReportingFollowUp) {
+  return followUp.status !== "terminee" && followUp.status !== "annulee";
+}
+
+function getFollowUpTone(followUp: ReportingFollowUp) {
+  if (followUp.status === "en_retard") return "warning";
+  if (followUp.status === "en_cours") return "success";
+  return "neutral";
+}
+
+function getFollowUpStatusFromDate(value: string) {
+  const dueKey = getDateKey(value);
+  const todayKey = getDateKey(new Date().toISOString());
+
+  if (dueKey < todayKey) return "en_retard";
+  if (dueKey === todayKey) return "en_cours";
+  return "a_faire";
+}
+
+function getDateKey(value: string) {
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+  return local.toISOString().slice(0, 10);
 }
 
 function formatDate(value: string) {

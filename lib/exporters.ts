@@ -14,6 +14,14 @@ import type {
 } from "@/lib/reporting-data";
 import type { SegmentCode } from "@/lib/types";
 
+const followUpStatusLabels = {
+  a_faire: "A faire",
+  en_cours: "En cours",
+  en_retard: "En retard",
+  terminee: "Finalisee",
+  annulee: "Annulee"
+} as const;
+
 export function exportProspects(items: ReportingProspect[]) {
   downloadCsv(
     "prospects.csv",
@@ -81,7 +89,7 @@ export function exportFollowUps(items: ReportingFollowUp[]) {
       commercial: followUp.commercial,
       personnes_affectees: followUp.assignedUsers.join(", "),
       date_relance: followUp.dueAt,
-      statut: followUp.status,
+      statut: followUpStatusLabels[followUp.status] ?? followUp.status,
       date_creation: followUp.createdAt,
       date_derniere_modification: followUp.updatedAt
     }))

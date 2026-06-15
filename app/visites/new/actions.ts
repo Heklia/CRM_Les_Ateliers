@@ -44,6 +44,7 @@ export async function createVisitReport(
   const need = optionalText(formData, "besoins");
   const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
   const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
+  const followUpId = optionalText(formData, "follow_up_id");
   const nextActions =
     prospectStatus.ok && prospectStatus.data === "perdu"
       ? ({ ok: true as const, data: null } as const)
@@ -67,6 +68,7 @@ export async function createVisitReport(
   const validatedNextActions = nextActions.data;
   const validatedInterest = interest.data;
   const validatedProspectStatus = prospectStatus.data;
+  const validatedFollowUpId = followUpId;
   const validatedBudget = budget.data === null ? null : budget.data * 1000;
   const validatedFollowUpDate = followUpDate.data;
 
@@ -156,6 +158,18 @@ export async function createVisitReport(
     return {
       error: "La visite est enregistree, mais la derniere interaction du prospect n'a pas ete mise a jour."
     };
+  }
+
+  if (validatedFollowUpId) {
+    await supabase
+      .from("actions_suivantes")
+      .update({
+        status: "terminee",
+        completed_at: validatedVisitDate
+      })
+      .eq("id", validatedFollowUpId)
+      .eq("prospect_id", validatedProspectId)
+      .eq("status", "a_faire");
   }
 
   if (validatedProspectStatus === "perdu") {

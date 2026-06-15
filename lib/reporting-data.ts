@@ -63,7 +63,7 @@ export type ReportingFollowUp = {
   commercial: string;
   assignedUsers: string[];
   dueAt: string;
-  status: string;
+  status: "a_faire" | "en_cours" | "en_retard" | "terminee" | "annulee";
   segment: SegmentCode | null;
   createdAt: string;
   updatedAt: string;
@@ -325,7 +325,7 @@ export async function getReportingData(supabase: any) {
         ? assignedUsersByProspect.get(prospect.id) ?? [userById.get(followUp.commercial_id) ?? "Commercial"]
         : [userById.get(followUp.commercial_id) ?? "Commercial"],
       dueAt: followUp.due_at,
-      status: followUp.status,
+      status: getFollowUpStatus(followUp),
       segment: prospect ? ((segmentById.get(prospect.segment_id) ?? null) as SegmentCode | null) : null,
       createdAt: followUp.created_at,
       updatedAt: followUp.updated_at
@@ -377,4 +377,29 @@ function isMissingCategoryError(error: unknown) {
   const code = "code" in error ? String(error.code) : "";
 
   return code === "42703" || message.includes("category");
+}
+
+function getFollowUpStatus(followUp: FollowUpRow): ReportingFollowUp["status"] {
+  if (followUp.status === "terminee" || followUp.status === "annulee") {
+    return followUp.status;
+  }
+
+  const dueKey = getDateKey(followUp.due_at);
+  const todayKey = getDateKey(new Date().toISOString());
+
+  if (dueKey < todayKey) {
+    return "en_retard";
+  }
+
+  if (dueKey === todayKey) {
+    return "en_cours";
+  }
+
+  return "a_faire";
+}
+
+function getDateKey(value: string) {
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+  return local.toISOString().slice(0, 10);
 }
