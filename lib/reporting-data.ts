@@ -156,15 +156,30 @@ type FollowUpRow = {
   updated_at: string;
 };
 
+type ActionThreadRow = {
+  id: string;
+  prospect_id: string;
+  contact_id: string | null;
+  owner_user_id: string;
+  current_action_type: string;
+  current_due_date: string;
+  current_priority: string;
+  current_status: string;
+  prospect_status: string;
+  current_comment: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function getReportingData(supabase: any) {
   const prospectsResult = await fetchReportingProspects(supabase);
+  const actionThreadsResult = await fetchReportingActionThreads(supabase);
   const [
     { data: contacts },
     { data: users },
     { data: segments },
     { data: visits },
     { data: opportunities },
-    { data: followUps },
     { data: prospectAssignments },
     { data: visitAssignments }
   ] = await Promise.all([
@@ -182,10 +197,6 @@ export async function getReportingData(supabase: any) {
       .from("opportunites")
       .select("id, prospect_id, commercial_id, segment_id, title, stage, estimated_value, probability, created_at, updated_at")
       .order("created_at", { ascending: false }),
-    supabase
-      .from("actions_suivantes")
-      .select("id, prospect_id, opportunite_id, visite_id, commercial_id, title, description, due_at, status, created_at, updated_at")
-      .order("due_at", { ascending: true }),
     supabase.from("prospect_assignments").select("prospect_id, user_id"),
     supabase.from("visite_assignments").select("visite_id, user_id")
   ]);
@@ -196,7 +207,7 @@ export async function getReportingData(supabase: any) {
   const segmentRows = (segments ?? []) as SegmentRow[];
   const visitRows = (visits ?? []) as VisitRow[];
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
-  const followUpRows = (followUps ?? []) as FollowUpRow[];
+  const followUpRows = (actionThreadsResult.data ?? []) as FollowUpRow[];
   const prospectAssignmentRows = (prospectAssignments ?? []) as ProspectAssignmentRow[];
   const visitAssignmentRows = (visitAssignments ?? []) as VisitAssignmentRow[];
 
@@ -368,6 +379,43 @@ async function fetchReportingProspects(supabase: any) {
   };
 }
 
+async function fetchReportingActionThreads(supabase: any) {
+  const result = await supabase
+    .from("commercial_action_threads")
+    .select("id, prospect_id, contact_id, owner_user_id, current_action_type, current_due_date, current_priority, current_status, prospect_status, current_comment, created_at, updated_at")
+    .order("current_due_date", { ascending: true });
+
+  if (!isMissingTableError(result.error)) {
+    return {
+      data: ((result.data ?? []) as ActionThreadRow[]).map((thread) => ({
+        id: thread.id,
+        prospect_id: thread.prospect_id,
+        opportunite_id: null,
+        visite_id: null,
+        commercial_id: thread.owner_user_id,
+        title: thread.current_action_type,
+        description: thread.current_comment,
+        due_at: thread.current_due_date,
+        status:
+          thread.current_status === "closed_lost" || thread.current_status === "closed_won"
+            ? "terminee"
+            : thread.current_status === "archived"
+              ? "annulee"
+              : "a_faire",
+        created_at: thread.created_at,
+        updated_at: thread.updated_at
+      }))
+    };
+  }
+
+  const fallback = await supabase
+    .from("actions_suivantes")
+    .select("id, prospect_id, opportunite_id, visite_id, commercial_id, title, description, due_at, status, created_at, updated_at")
+    .order("due_at", { ascending: true });
+
+  return { data: (fallback.data ?? []) as FollowUpRow[] };
+}
+
 function isMissingCategoryError(error: unknown) {
   if (!error || typeof error !== "object") {
     return false;
@@ -377,6 +425,17 @@ function isMissingCategoryError(error: unknown) {
   const code = "code" in error ? String(error.code) : "";
 
   return code === "42703" || message.includes("category");
+}
+
+function isMissingTableError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+
+  return code === "42P01" || message.includes("commercial_action_threads");
 }
 
 function getFollowUpStatus(followUp: FollowUpRow): ReportingFollowUp["status"] {

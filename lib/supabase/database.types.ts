@@ -230,6 +230,56 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["prospect_images"]["Row"]>;
       };
+      commercial_action_threads: {
+        Row: {
+          id: string;
+          prospect_id: string;
+          contact_id: string | null;
+          owner_user_id: string;
+          current_action_type: string;
+          current_due_date: string;
+          current_priority: string;
+          current_status: string;
+          prospect_status: string;
+          current_comment: string | null;
+          last_completed_action_at: string | null;
+          closed_at: string | null;
+          closed_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["commercial_action_threads"]["Row"]> & {
+          prospect_id: string;
+          owner_user_id: string;
+          current_action_type: string;
+          current_due_date: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["commercial_action_threads"]["Row"]>;
+      };
+      commercial_action_events: {
+        Row: {
+          id: string;
+          action_thread_id: string;
+          completed_at: string;
+          action_type: string;
+          result: string | null;
+          report: string | null;
+          prospect_status_after_action: string;
+          next_action_type: string | null;
+          next_due_date: string | null;
+          priority_after_action: string | null;
+          created_by_user_id: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["commercial_action_events"]["Row"]> & {
+          action_thread_id: string;
+          completed_at: string;
+          action_type: string;
+          prospect_status_after_action: string;
+          created_by_user_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["commercial_action_events"]["Row"]>;
+      };
       visite_assignments: {
         Row: {
           visite_id: string;
@@ -279,6 +329,21 @@ export type Database = {
         Args: {
           prospect_payload: Json;
           contact_payload: Json;
+        };
+        Returns: string;
+      };
+      complete_commercial_action_thread: {
+        Args: {
+          target_thread_id: string;
+          completed_at_value: string;
+          action_type_value: string;
+          result_value: string | null;
+          report_value: string | null;
+          prospect_status_after_action_value: string;
+          next_action_type_value: string | null;
+          next_due_date_value: string | null;
+          priority_after_action_value: string | null;
+          comment_value: string | null;
         };
         Returns: string;
       };

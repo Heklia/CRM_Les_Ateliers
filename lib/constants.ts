@@ -35,6 +35,40 @@ export const prospectCategoryLabels = {
   a_ecarter: "A ecarter"
 } as const;
 
+export const commercialActionTypeLabels = {
+  appel: "Appel",
+  email: "Email",
+  visite_terrain: "Visite terrain",
+  salon: "Salon",
+  devis: "Devis",
+  autre: "Autre"
+} as const;
+
+export const commercialActionPriorityLabels = {
+  basse: "Basse",
+  normale: "Normale",
+  haute: "Haute"
+} as const;
+
+export const commercialActionThreadStatusLabels = {
+  active: "Active",
+  closed_won: "Cloturee gagnee",
+  closed_lost: "Cloturee perdue",
+  archived: "Archivee"
+} as const;
+
+export const commercialProspectStatusLabels = {
+  a_qualifier: "A qualifier",
+  interesse: "Interesse",
+  projet_identifie: "Projet identifie",
+  devis_a_faire: "Devis a faire",
+  devis_envoye: "Devis envoye",
+  relance_a_faire: "Relance a faire",
+  commande_gagnee: "Commande gagnee",
+  perdu: "Perdu",
+  sans_suite_temporaire: "Sans suite temporaire"
+} as const;
+
 export const opportunityStages = [
   "prospect_identifie",
   "contact_etabli",

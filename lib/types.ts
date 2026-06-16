@@ -18,6 +18,33 @@ export type ProspectStatus =
 
 export type ProspectCategory = "favori" | "standard" | "a_ecarter";
 
+export type CommercialActionType =
+  | "appel"
+  | "email"
+  | "visite_terrain"
+  | "salon"
+  | "devis"
+  | "autre";
+
+export type CommercialActionPriority = "basse" | "normale" | "haute";
+
+export type CommercialActionThreadStatus =
+  | "active"
+  | "closed_won"
+  | "closed_lost"
+  | "archived";
+
+export type CommercialProspectStatus =
+  | "a_qualifier"
+  | "interesse"
+  | "projet_identifie"
+  | "devis_a_faire"
+  | "devis_envoye"
+  | "relance_a_faire"
+  | "commande_gagnee"
+  | "perdu"
+  | "sans_suite_temporaire";
+
 export type OpportunityStage =
   | "prospect_identifie"
   | "contact_etabli"

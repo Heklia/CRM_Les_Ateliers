@@ -19,6 +19,16 @@ type FollowUpRow = {
   status: string;
 };
 
+type ActionThreadRow = {
+  id: string;
+  prospect_id: string;
+  owner_user_id: string;
+  current_action_type: string;
+  current_due_date: string;
+  current_comment: string | null;
+  current_status: string;
+};
+
 type ProspectRow = {
   id: string;
   company_name: string;
@@ -72,7 +82,7 @@ export async function GET(request: Request) {
   const endDate = dateKeyToUtcEnd(next15Key);
   const [
     { data: users, error: usersError },
-    { data: followUps, error: followUpsError },
+    { data: actionThreads, error: actionThreadsError },
     { data: prospects, error: prospectsError },
     { data: prospectAssignments, error: assignmentsError }
   ] = await Promise.all([
@@ -80,26 +90,34 @@ export async function GET(request: Request) {
       .select("id, email, full_name, is_active, daily_task_email_enabled")
       .eq("is_active", true)
       .eq("daily_task_email_enabled", true),
-    (admin.from("actions_suivantes") as any)
-      .select("id, prospect_id, commercial_id, title, description, due_at, status")
-      .eq("status", "a_faire")
-      .lte("due_at", endDate.toISOString())
-      .order("due_at", { ascending: true }),
+    (admin.from("commercial_action_threads") as any)
+      .select("id, prospect_id, owner_user_id, current_action_type, current_due_date, current_comment, current_status")
+      .eq("current_status", "active")
+      .lte("current_due_date", endDate.toISOString())
+      .order("current_due_date", { ascending: true }),
     (admin.from("prospects") as any).select("id, company_name"),
     (admin.from("prospect_assignments") as any).select("prospect_id, user_id")
   ]);
 
-  if (usersError || followUpsError || prospectsError || assignmentsError) {
+  if (usersError || actionThreadsError || prospectsError || assignmentsError) {
     return NextResponse.json(
       {
-        error: usersError?.message ?? followUpsError?.message ?? prospectsError?.message ?? assignmentsError?.message
+        error: usersError?.message ?? actionThreadsError?.message ?? prospectsError?.message ?? assignmentsError?.message
       },
       { status: 500 }
     );
   }
 
   const userRows = (users ?? []) as UserRow[];
-  const followUpRows = ((followUps ?? []) as FollowUpRow[]).filter(
+  const followUpRows = ((actionThreads ?? []) as ActionThreadRow[]).map((thread) => ({
+    id: thread.id,
+    prospect_id: thread.prospect_id,
+    commercial_id: thread.owner_user_id,
+    title: actionTypeLabel(thread.current_action_type),
+    description: thread.current_comment,
+    due_at: thread.current_due_date,
+    status: thread.current_status
+  })).filter(
     (task) => getParisDateKey(new Date(task.due_at)) <= next15Key
   );
   const prospectRows = (prospects ?? []) as ProspectRow[];
@@ -334,6 +352,19 @@ function renderTaskRow(
       </td>
     </tr>
   `;
+}
+
+function actionTypeLabel(value: string) {
+  const labels: Record<string, string> = {
+    appel: "Appel",
+    email: "Email",
+    visite_terrain: "Visite terrain",
+    salon: "Salon",
+    devis: "Devis",
+    autre: "Autre"
+  };
+
+  return labels[value] ?? value;
 }
 
 function renderTextEmail({
