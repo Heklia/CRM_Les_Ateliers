@@ -8,6 +8,11 @@ import {
   requiredText
 } from "@/lib/forms/validation";
 import { segmentLabels } from "@/lib/constants";
+import {
+  duplicateProspectMessage,
+  findDuplicateProspect,
+  isDuplicateProspectError
+} from "@/lib/prospects/duplicate-check";
 import { createClient } from "@/lib/supabase/server";
 import type { SegmentCode } from "@/lib/types";
 
@@ -46,6 +51,7 @@ export async function createProspect(
   const validatedContactName = contactName.data;
   const validatedWebsite = website.data;
   const validatedEmail = email.data;
+  const postalCode = optionalText(formData, "postal_code");
 
   const profile = await ensureCommercialProfile(user);
 
@@ -61,6 +67,11 @@ export async function createProspect(
 
   const primarySegment = selectedSegmentsResult.segments[0];
   const { firstName, lastName } = splitContactName(validatedContactName);
+  const duplicateProspect = await findDuplicateProspect(supabase, validatedCompanyName, postalCode);
+
+  if (duplicateProspect) {
+    return { error: duplicateProspectMessage };
+  }
 
   const { data: createdProspectId, error: createError } = await supabase.rpc("create_prospect_with_contact", {
     prospect_payload: {
@@ -70,7 +81,7 @@ export async function createProspect(
       sub_segment: optionalText(formData, "sub_segment"),
       address_line1: optionalText(formData, "address"),
       city: optionalText(formData, "city"),
-      postal_code: optionalText(formData, "postal_code"),
+      postal_code: postalCode,
       website: validatedWebsite,
       estimated_potential: null,
       project_timeline: "inconnu",
@@ -93,6 +104,10 @@ export async function createProspect(
   });
 
   if (createError) {
+    if (isDuplicateProspectError(createError)) {
+      return { error: duplicateProspectMessage };
+    }
+
     return { error: "Impossible de creer le prospect et son contact." };
   }
 

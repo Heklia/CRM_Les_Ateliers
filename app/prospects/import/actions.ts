@@ -6,6 +6,12 @@ import {
   optionalNonNegativeNumber,
   optionalScaleNumber
 } from "@/lib/forms/validation";
+import {
+  duplicateProspectMessage,
+  findDuplicateProspect,
+  isDuplicateProspectError,
+  normalizeProspectDuplicateKey
+} from "@/lib/prospects/duplicate-check";
 import { createClient } from "@/lib/supabase/server";
 
 type ImportProspectsState = {
@@ -107,6 +113,7 @@ export async function importProspects(
 
   let imported = 0;
   const details: string[] = [];
+  const fileDuplicateKeys = new Set<string>();
 
   for (const [index, row] of parsed.rows.entries()) {
     const line = index + 2;
@@ -114,6 +121,26 @@ export async function importProspects(
 
     if (!validated.ok) {
       details.push(validated.error);
+      continue;
+    }
+
+    const duplicateKey = buildDuplicateKey(validated.data.companyName, validated.data.postalCode);
+
+    if (fileDuplicateKeys.has(duplicateKey)) {
+      details.push(`Ligne ${line} : doublon dans le fichier (${validated.data.companyName}, ${validated.data.postalCode ?? "sans code postal"}).`);
+      continue;
+    }
+
+    fileDuplicateKeys.add(duplicateKey);
+
+    const duplicateProspect = await findDuplicateProspect(
+      supabase,
+      validated.data.companyName,
+      validated.data.postalCode
+    );
+
+    if (duplicateProspect) {
+      details.push(`Ligne ${line} : ${duplicateProspectMessage}`);
       continue;
     }
 
@@ -149,6 +176,11 @@ export async function importProspects(
     });
 
     if (error) {
+      if (isDuplicateProspectError(error)) {
+        details.push(`Ligne ${line} : ${duplicateProspectMessage}`);
+        continue;
+      }
+
       details.push(`Ligne ${line} : import impossible (${error.message}).`);
       continue;
     }
@@ -402,6 +434,10 @@ function normalizeValue(value: string) {
 function optionalString(value?: string) {
   const trimmed = value?.trim() ?? "";
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function buildDuplicateKey(companyName: string, postalCode: string | null) {
+  return `${normalizeProspectDuplicateKey(companyName)}::${normalizeProspectDuplicateKey(postalCode)}`;
 }
 
 async function ensureUserProfile(user: {

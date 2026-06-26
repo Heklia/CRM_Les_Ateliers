@@ -8,6 +8,11 @@ import {
   requiredText
 } from "@/lib/forms/validation";
 import { segmentLabels } from "@/lib/constants";
+import {
+  duplicateProspectMessage,
+  findDuplicateProspect,
+  isDuplicateProspectError
+} from "@/lib/prospects/duplicate-check";
 import { createClient } from "@/lib/supabase/server";
 import type { SegmentCode } from "@/lib/types";
 
@@ -62,6 +67,18 @@ export async function updateProspect(
   }
 
   const primarySegment = selectedSegmentsResult.segments[0];
+  const postalCode = optionalText(formData, "postal_code");
+  const duplicateProspect = await findDuplicateProspect(
+    supabase,
+    companyName.data,
+    postalCode,
+    prospectId.data
+  );
+
+  if (duplicateProspect) {
+    return { error: duplicateProspectMessage };
+  }
+
   const prospectsTable = supabase.from("prospects") as any;
   const { error: updateError } = await prospectsTable
     .update({
@@ -70,13 +87,17 @@ export async function updateProspect(
       sub_segment: optionalText(formData, "sub_segment"),
       address_line1: optionalText(formData, "address"),
       city: optionalText(formData, "city"),
-      postal_code: optionalText(formData, "postal_code"),
+      postal_code: postalCode,
       website: website.data,
       notes: optionalText(formData, "notes")
     })
     .eq("id", prospectId.data);
 
   if (updateError) {
+    if (isDuplicateProspectError(updateError)) {
+      return { error: duplicateProspectMessage };
+    }
+
     return { error: "Impossible de modifier le prospect." };
   }
 
