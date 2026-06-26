@@ -56,7 +56,7 @@ export function CommercialActionThreadsScreen({
   const [query, setQuery] = useState("");
   const [owner, setOwner] = useState("");
   const [priority, setPriority] = useState("");
-  const canCreate = profile.role !== "lecteur";
+  const canCreate = profile.role === "admin";
 
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -177,13 +177,15 @@ export function CommercialActionThreadsScreen({
                         <History size={16} />
                         Historique
                       </Link>
-                      <Link
-                        className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-white"
-                        href={`/actions-a-realiser/${item.id}#realiser`}
-                      >
-                        <Eye size={16} />
-                        Realiser
-                      </Link>
+                      {profile.role === "admin" ? (
+                        <Link
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-white"
+                          href={`/actions-a-realiser/${item.id}#realiser`}
+                        >
+                          <Eye size={16} />
+                          Realiser
+                        </Link>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

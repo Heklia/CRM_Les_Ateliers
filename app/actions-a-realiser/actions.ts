@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { canModifyData, getCurrentProfile } from "@/lib/auth/roles";
+import { getCurrentProfile } from "@/lib/auth/roles";
 import { optionalDateTime, optionalText, requiredDateTime, requiredEnum, requiredText } from "@/lib/forms/validation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,7 +33,7 @@ export async function createCommercialActionThread(
   const profile = await getCurrentProfile(supabase);
 
   if (!profile) redirect("/login");
-  if (!canModifyData(profile)) return { error: "Votre role ne permet pas de creer une fiche action." };
+  if (profile.role !== "admin") return { error: "Seul un admin peut creer une fiche action partagee." };
 
   const prospectId = requiredText(formData, "prospect_id", "Client");
   const contactId = requiredText(formData, "contact_id", "Contact");
@@ -83,7 +83,7 @@ export async function completeCommercialActionThread(
   const profile = await getCurrentProfile(supabase);
 
   if (!profile) redirect("/login");
-  if (!canModifyData(profile)) return { error: "Votre role ne permet pas de realiser une action." };
+  if (profile.role !== "admin") return { error: "Seul un admin peut modifier une fiche action partagee." };
 
   const threadId = requiredText(formData, "thread_id", "Fiche action");
   const completedAt = requiredDateTime(formData, "completed_at", "Date de realisation");
@@ -141,7 +141,7 @@ export async function updateCurrentCommercialAction(
   const profile = await getCurrentProfile(supabase);
 
   if (!profile) redirect("/login");
-  if (!canModifyData(profile)) return { error: "Votre role ne permet pas de modifier une fiche action." };
+  if (profile.role !== "admin") return { error: "Seul un admin peut modifier une fiche action partagee." };
 
   const threadId = requiredText(formData, "thread_id", "Fiche action");
   const actionType = requiredEnum(formData, "current_action_type", "Action a mener", actionTypes);
@@ -183,7 +183,7 @@ export async function closeCommercialActionAsLost(
   const profile = await getCurrentProfile(supabase);
 
   if (!profile) redirect("/login");
-  if (!canModifyData(profile)) return { error: "Votre role ne permet pas de cloturer une fiche action." };
+  if (profile.role !== "admin") return { error: "Seul un admin peut cloturer une fiche action partagee." };
 
   const threadId = requiredText(formData, "thread_id", "Fiche action");
   const completedAt = optionalDateTime(formData, "completed_at", "Date de cloture");

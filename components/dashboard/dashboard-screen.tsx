@@ -101,6 +101,12 @@ export function DashboardScreen({
     (opportunity) => opportunity.stage !== "prospect_identifie"
   );
   const hotProspects = filtered.prospects.filter((prospect) => prospect.interest >= 4);
+  const completedFollowUpsThisWeek = filtered.visits.filter(
+    (visit) => isCompletedFollowUpVisit(visit) && isInCurrentWeek(visit.date)
+  );
+  const completedFollowUpsThisMonth = filtered.visits.filter(
+    (visit) => isCompletedFollowUpVisit(visit) && isInCurrentMonth(visit.date)
+  );
   const visibleFollowUps = filtered.followUps.filter((followUp) =>
     isInFollowUpPeriod(followUp.dueAt, followUpPeriod)
   );
@@ -125,11 +131,11 @@ export function DashboardScreen({
   return (
     <main>
       <PageHeader
-        title={`Dashboard de ${profile.full_name}`}
+        title={`Accueil de ${profile.full_name}`}
         description={
           canFilterCommercials
-            ? "Vue equipe pour suivre l'activite terrain, le potentiel commercial et la performance du pipeline."
-            : "Vue personnelle pour suivre vos prospects, vos visites, vos relances et votre pipeline."
+            ? "Vue equipe pour suivre les actions du jour et les indicateurs d'activite."
+            : "Vue personnelle pour suivre vos actions du jour et vos indicateurs d'activite."
         }
       />
 
@@ -175,7 +181,7 @@ export function DashboardScreen({
 
       <section className="mb-6 rounded-lg border border-border bg-surface p-5 shadow-soft">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Actions a realiser</h2>
+          <h2 className="text-base font-semibold">Actions a realiser aujourd'hui</h2>
           <StatusPill tone={visibleFollowUps.length ? "warning" : "success"}>
             {visibleFollowUps.length}
           </StatusPill>
@@ -229,18 +235,43 @@ export function DashboardScreen({
         </div>
       </section>
 
+      <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={CalendarCheck}
+          label="Nombre de visites"
+          value={`${filtered.visits.length}`}
+          detail="Actions et comptes-rendus saisis sur la periode"
+        />
+        <StatCard
+          icon={Users}
+          label="Nouveaux prospects"
+          value={`${filtered.prospects.length}`}
+          detail="Prospects crees sur la periode"
+        />
+        <StatCard
+          icon={PhoneCall}
+          label="Relances semaine"
+          value={`${completedFollowUpsThisWeek.length}`}
+          detail="Appels, emails et devis realises cette semaine"
+        />
+        <StatCard
+          icon={ListTodo}
+          label="Relances mois"
+          value={`${completedFollowUpsThisMonth.length}`}
+          detail="Appels, emails et devis realises ce mois"
+        />
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard icon={Users} label="Prospects crees" value={`${filtered.prospects.length}`} detail="Nouveaux comptes sur la periode" />
-        <StatCard icon={CalendarCheck} label="Visites realisees" value={`${filtered.visits.length}`} detail="Comptes-rendus saisis" />
         <StatCard icon={ListTodo} label="Actions a realiser" value={`${filtered.followUps.length}`} detail="Actions ouvertes" />
         <StatCard icon={AlertTriangle} label="Actions en retard" value={`${overdueFollowUps.length}`} detail="Echeance depassee" />
         <StatCard icon={Target} label="Opportunites detectees" value={`${detectedOpportunities.length}`} detail="Hors simple identification" />
-      </section>
-
-      <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Wallet} label="CA potentiel total" value={formatCurrency(potentialTotal)} detail="Somme des potentiels prospects" />
         <StatCard icon={Flame} label="Prospects chauds" value={`${hotProspects.length}`} detail="Niveau d'interet 4 ou 5" />
         <StatCard icon={Target} label="Score priorite moyen" value={`${averagePriorityScore}/100`} detail="Moyenne des prospects filtres" />
+      </section>
+
+      <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
+        <StatCard icon={Wallet} label="CA potentiel total" value={formatCurrency(potentialTotal)} detail="Somme des potentiels prospects" />
         <StatCard icon={TrendingUp} label="Taux devis envoye" value={formatRate(rateForStage(filtered.prospects, "devis_envoye"))} detail="Prospects arrives a cette etape" />
       </section>
 
@@ -421,6 +452,39 @@ function getDateKey(value: string) {
   const date = new Date(value);
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
   return local.toISOString().slice(0, 10);
+}
+
+function isCompletedFollowUpVisit(visit: ReportingVisit) {
+  return ["appel", "email", "devis"].includes(visit.type);
+}
+
+function isInCurrentWeek(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+  const start = getStartOfLocalDay(now);
+  const day = start.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + mondayOffset);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+
+  return date >= start && date < end;
+}
+
+function isInCurrentMonth(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  return date >= start && date < end;
+}
+
+function getStartOfLocalDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
 function getPotentialBySegment(items: ReportingProspect[]) {

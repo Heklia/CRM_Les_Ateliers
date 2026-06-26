@@ -36,6 +36,12 @@ function completeThread(store, threadId, event) {
   thread.lastCompletedActionAt = event.completedAt;
 }
 
+function assertCanModifySharedActions(profile) {
+  if (profile.role !== "admin") {
+    throw new Error("admin_only_shared_actions");
+  }
+}
+
 test("creation premiere fiche refuse un doublon actif client/contact", () => {
   const store = { threads: [], events: [] };
 
@@ -138,5 +144,17 @@ test("historique reste rattache au couple client/contact via la fiche", () => {
   assert.deepEqual(
     history.map((event) => event.actionType),
     ["appel", "email"]
+  );
+});
+
+test("actions partagees modifiables uniquement par admin", () => {
+  assert.doesNotThrow(() => assertCanModifySharedActions({ role: "admin" }));
+  assert.throws(
+    () => assertCanModifySharedActions({ role: "modification" }),
+    /admin_only_shared_actions/
+  );
+  assert.throws(
+    () => assertCanModifySharedActions({ role: "lecteur" }),
+    /admin_only_shared_actions/
   );
 });

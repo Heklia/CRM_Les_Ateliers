@@ -69,7 +69,7 @@ export function CommercialActionThreadDetail({
   prospect,
   thread
 }: DetailProps) {
-  const canModify = profile.role !== "lecteur" && thread.currentStatus === "active";
+  const canModify = profile.role === "admin" && thread.currentStatus === "active";
 
   return (
     <>
