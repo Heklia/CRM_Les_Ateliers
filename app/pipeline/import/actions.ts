@@ -377,7 +377,7 @@ function validateQuoteRow(row: CsvRow, line: number) {
   const quoteCode = row.quote_code?.trim();
   const subject = row.title?.trim();
   const title = [quoteCode, subject].filter(Boolean).join(" - ") || quoteCode || subject;
-  const stage = normalizeStage(row.state, row.concretized_at);
+  const stage = normalizeStage(row.state);
   const probability = parsePercent(row.probability);
   const estimatedValue = parseAmount(row.estimated_value);
   const quoteDate = normalizeDate(row.quote_date);
@@ -403,7 +403,9 @@ function validateQuoteRow(row: CsvRow, line: number) {
       title,
       estimatedValue,
       probability,
-      expectedCloseDate: concretizedAt ?? followUpDate ?? quoteDate,
+      expectedCloseDate: stage === "gagne"
+        ? concretizedAt ?? followUpDate ?? quoteDate
+        : followUpDate ?? quoteDate ?? concretizedAt,
       quoteDate,
       followUpDate,
       concretizedAt,
@@ -508,10 +510,9 @@ function normalizeHeader(value: string) {
   return normalized;
 }
 
-function normalizeStage(value?: string, concretizedAt?: string): OpportunityStage {
+function normalizeStage(value?: string): OpportunityStage {
   const normalized = normalizeValue(value ?? "");
 
-  if (concretizedAt?.trim()) return "gagne";
   if (!normalized) return "devis_envoye";
   if (opportunityStages.includes(normalized as OpportunityStage)) return normalized as OpportunityStage;
   if (normalized.includes("faire")) return "devis_a_faire";
