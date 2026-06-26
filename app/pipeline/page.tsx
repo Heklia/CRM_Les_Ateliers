@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Upload } from "lucide-react";
 import { PipelineKanban, type PipelineCard } from "@/components/pipeline/pipeline-kanban";
 import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth/roles";
@@ -80,6 +82,16 @@ export default async function PipelinePage() {
         title="Pipeline"
         description="Vue Kanban dediee aux opportunites, avec potentiel mensuel et export."
       />
+
+      <div className="mb-4">
+        <Link
+          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-4 text-sm font-semibold hover:bg-background"
+          href="/pipeline/import"
+        >
+          <Upload size={16} />
+          Importer des devis
+        </Link>
+      </div>
 
       <PipelineKanban initialCards={cards} />
     </main>
