@@ -112,12 +112,14 @@ export async function importQuotes(
     return { error: usersResult.error };
   }
 
+  const prospectRows = (prospects ?? []) as ProspectRow[];
   const prospectByKey = new Map(
-    ((prospects ?? []) as ProspectRow[]).map((prospect) => [
+    prospectRows.map((prospect) => [
       buildProspectKey(prospect.company_name, prospect.postal_code),
       prospect
     ])
   );
+  const prospectsByCompany = groupProspectsByCompany(prospectRows);
   const segmentByCode = new Map(
     ((segments ?? []) as SegmentRow[]).map((segment) => [segment.code, segment.id])
   );
@@ -143,8 +145,11 @@ export async function importQuotes(
     const representative = validated.data.representativeCode
       ? userByRepresentativeCode.get(normalizeRepresentativeCode(validated.data.representativeCode))
       : null;
-    const prospect = prospectByKey.get(
-      buildProspectKey(validated.data.companyName, validated.data.postalCode)
+    const prospectMatch = findProspectForQuote(
+      prospectByKey,
+      prospectsByCompany,
+      validated.data.companyName,
+      validated.data.postalCode
     );
 
     if (validated.data.representativeCode && !representative) {
@@ -152,11 +157,12 @@ export async function importQuotes(
       continue;
     }
 
-    if (!prospect) {
-      details.push(`Ligne ${line} : prospect introuvable pour ${validated.data.companyName} / ${validated.data.postalCode ?? "sans code postal"}.`);
+    if (!prospectMatch.ok) {
+      details.push(`Ligne ${line} : ${prospectMatch.error}`);
       continue;
     }
 
+    const prospect = prospectMatch.prospect;
     const segmentId = validated.data.segmentCode
       ? segmentByCode.get(validated.data.segmentCode) ?? prospect.segment_id
       : prospect.segment_id;
@@ -247,6 +253,53 @@ async function findExistingOpportunity(supabase: any, prospectId: string, title:
     (opportunity) =>
       normalizeProspectDuplicateKey(opportunity.title) === normalizeProspectDuplicateKey(title)
   ) ?? null;
+}
+
+function groupProspectsByCompany(prospects: ProspectRow[]) {
+  const grouped = new Map<string, ProspectRow[]>();
+
+  prospects.forEach((prospect) => {
+    const key = normalizeProspectDuplicateKey(prospect.company_name);
+    grouped.set(key, [...(grouped.get(key) ?? []), prospect]);
+  });
+
+  return grouped;
+}
+
+function findProspectForQuote(
+  prospectByKey: Map<string, ProspectRow>,
+  prospectsByCompany: Map<string, ProspectRow[]>,
+  companyName: string,
+  postalCode: string | null
+) {
+  if (postalCode) {
+    const prospect = prospectByKey.get(buildProspectKey(companyName, postalCode));
+
+    return prospect
+      ? { ok: true as const, prospect }
+      : {
+          ok: false as const,
+          error: `prospect introuvable pour ${companyName} / ${postalCode}.`
+        };
+  }
+
+  const matches = prospectsByCompany.get(normalizeProspectDuplicateKey(companyName)) ?? [];
+
+  if (matches.length === 1) {
+    return { ok: true as const, prospect: matches[0] };
+  }
+
+  if (matches.length > 1) {
+    return {
+      ok: false as const,
+      error: `plusieurs prospects nommes ${companyName}. Ajoutez une colonne code_postal au CSV pour choisir le bon.`
+    };
+  }
+
+  return {
+    ok: false as const,
+    error: `prospect introuvable pour ${companyName}.`
+  };
 }
 
 async function fetchUsersWithRepresentativeCodes(supabase: any) {
