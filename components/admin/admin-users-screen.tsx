@@ -13,6 +13,7 @@ type AdminUser = {
   fullName: string;
   role: AppRole;
   phone: string | null;
+  representativeCode: string | null;
   isActive: boolean;
   dailyTaskEmailEnabled: boolean;
 };
@@ -36,6 +37,7 @@ export function AdminUsersScreen({ users }: { users: AdminUser[] }) {
           <Field label="Email" name="email" required type="email" />
           <Field label="Nom complet" name="full_name" required />
           <Field label="Telephone" name="phone" />
+          <Field label="Code representant" name="representative_code" />
           <Field label="Mot de passe temporaire" minLength={8} name="password" required type="password" />
           <RoleSelect />
           <div className="flex items-end justify-end lg:col-span-2">
@@ -69,6 +71,7 @@ function UserRow({ user }: { user: AdminUser }) {
         <Field defaultValue={user.email} label="Email" name="email" required type="email" />
         <Field defaultValue={user.fullName} label="Nom" name="full_name" required />
         <Field defaultValue={user.phone ?? ""} label="Telephone" name="phone" />
+        <Field defaultValue={user.representativeCode ?? ""} label="Code representant" name="representative_code" />
         <RoleSelect defaultValue={user.role} />
         <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
           <input defaultChecked={user.isActive} name="is_active" type="checkbox" />

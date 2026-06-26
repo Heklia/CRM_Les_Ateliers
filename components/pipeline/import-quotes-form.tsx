@@ -12,8 +12,8 @@ const initialState: {
 } = {};
 
 const csvTemplate = [
-  "entreprise;code_postal;devis;montant;probabilite;date_projet;statut;segment;description",
-  "Exemple Paysage;44000;Cuisine exterieure sur mesure;25000;70;2026-09-30;devis_envoye;Structure et mobilier;Devis transmis apres visite terrain"
+  "Code_Représentant;Code Devis;Date;Date de relance à réaliser;Etat;Taux de concrétisation;Entreprise(ou nom_client);Sujet;Temps total;déboursé total;total HT Net;Date de concrétisation;Téléphone",
+  "REP01;D-2026-001;26/06/2026;03/07/2026;Devis envoyé;70;Exemple Paysage;Cuisine exterieure sur mesure;4;1200;25000;;0600000000"
 ].join("\n");
 
 export function ImportQuotesForm() {
@@ -25,7 +25,7 @@ export function ImportQuotesForm() {
         <div>
           <h2 className="text-base font-semibold">Fichier CSV devis</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Les devis importes alimentent directement les opportunites du pipeline. Le rattachement au prospect se fait par entreprise et code postal.
+            Les devis importes alimentent directement les opportunites du pipeline. Le code representant rattache le devis au bon utilisateur.
           </p>
 
           <a
@@ -66,8 +66,8 @@ export function ImportQuotesForm() {
 
           <div className="rounded-md border border-border bg-background p-4 text-sm text-muted">
             <p className="font-medium text-foreground">Colonnes reconnues</p>
-            <p className="mt-2">Obligatoires : entreprise, devis, montant.</p>
-            <p>Optionnelles : code_postal, probabilite, date_projet, statut, segment, description.</p>
+            <p className="mt-2">Obligatoires : Entreprise(ou nom_client), Code Devis ou Sujet, total HT Net.</p>
+            <p>Le Code_Représentant doit correspondre au code saisi sur la fiche utilisateur.</p>
           </div>
 
           <SubmitButton />

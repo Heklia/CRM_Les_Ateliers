@@ -65,7 +65,8 @@ export async function createUser(
       email: email.data,
       fullName: fullName.data,
       role: role.data,
-      phone: optionalText(formData, "phone")
+      phone: optionalText(formData, "phone"),
+      representativeCode: optionalText(formData, "representative_code")
     });
 
     if (repairedProfile.error) {
@@ -81,7 +82,8 @@ export async function createUser(
     email: email.data,
     fullName: fullName.data,
     role: role.data,
-    phone: optionalText(formData, "phone")
+    phone: optionalText(formData, "phone"),
+    representativeCode: optionalText(formData, "representative_code")
   });
 
   if (profile.error) {
@@ -129,6 +131,7 @@ export async function updateUser(
     full_name: fullName.data,
     role: role.data as AppRole,
     phone: optionalText(formData, "phone"),
+    representative_code: optionalText(formData, "representative_code"),
     is_active: isActive,
     daily_task_email_enabled: dailyTaskEmailEnabled
   };
@@ -143,7 +146,7 @@ export async function updateUser(
       return { error: `Impossible de mettre a jour le profil : ${error.message}` };
     }
 
-    const { daily_task_email_enabled: _ignored, ...fallbackPayload } = updatePayload;
+    const { daily_task_email_enabled: _ignored, representative_code: _ignoredRepresentative, ...fallbackPayload } = updatePayload;
     const { error: fallbackError } = await usersTable
       .update(fallbackPayload)
       .eq("id", userId.data);
@@ -355,6 +358,7 @@ async function upsertUserProfile(
     fullName: string;
     role: AppRole;
     phone: string | null;
+    representativeCode: string | null;
   }
 ): Promise<AdminUserState> {
   const usersTable = admin.from("users") as any;
@@ -364,6 +368,7 @@ async function upsertUserProfile(
     full_name: user.fullName,
     role: user.role,
     phone: user.phone,
+    representative_code: user.representativeCode,
     is_active: true,
     daily_task_email_enabled: true
   };
@@ -374,7 +379,7 @@ async function upsertUserProfile(
       return { error: `Profil applicatif impossible a creer : ${error.message}` };
     }
 
-    const { daily_task_email_enabled: _ignored, ...fallbackPayload } = profilePayload;
+    const { daily_task_email_enabled: _ignored, representative_code: _ignoredRepresentative, ...fallbackPayload } = profilePayload;
     const { error: fallbackError } = await usersTable.upsert(fallbackPayload);
 
     if (fallbackError) {

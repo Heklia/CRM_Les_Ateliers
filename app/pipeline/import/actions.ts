@@ -29,14 +29,27 @@ type SegmentRow = {
   code: string;
 };
 
+type UserRow = {
+  id: string;
+  full_name: string;
+  representative_code: string | null;
+};
+
 const headerAliases = {
-  company_name: ["entreprise", "company_name", "nom_entreprise", "societe"],
+  representative_code: ["code_representant", "code_représentant", "representant"],
+  quote_code: ["code_devis", "devis"],
+  quote_date: ["date"],
+  follow_up_date: ["date_de_relance_a_realiser", "date_de_relance_à_réaliser", "relance"],
+  state: ["etat", "état", "statut"],
+  probability: ["taux_de_concretisation", "taux_de_concrétisation", "probabilite"],
+  company_name: ["entreprise_ou_nom_client", "entreprise", "nom_client", "company_name", "societe"],
+  title: ["sujet", "opportunite", "titre", "title"],
+  total_time: ["temps_total"],
+  total_cost: ["debourse_total", "déboursé_total"],
+  estimated_value: ["total_ht_net", "total_ht", "montant", "montant_eur", "estimated_value"],
+  concretized_at: ["date_de_concretisation", "date_de_concrétisation"],
+  phone: ["telephone", "téléphone", "phone"],
   postal_code: ["code_postal", "postal_code", "cp"],
-  title: ["devis", "opportunite", "titre", "title", "nom_devis"],
-  estimated_value: ["montant", "montant_eur", "estimated_value", "valeur", "ca"],
-  probability: ["probabilite", "probability", "interet", "pourcentage"],
-  expected_close_date: ["date_projet", "date_prevue", "expected_close_date", "echeance"],
-  stage: ["statut", "stage", "pipeline", "etape"],
   segment_code: ["segment", "segment_code", "segment_marche"],
   description: ["description", "commentaire", "details"]
 } as const;
@@ -76,10 +89,15 @@ export async function importQuotes(
     return { error: "Import limite a 500 devis par fichier pour ce MVP." };
   }
 
-  const [{ data: prospects, error: prospectError }, { data: segments, error: segmentError }] =
+  const [
+    { data: prospects, error: prospectError },
+    { data: segments, error: segmentError },
+    usersResult
+  ] =
     await Promise.all([
       supabase.from("prospects").select("id, company_name, postal_code, commercial_id, segment_id"),
-      supabase.from("segments").select("id, code")
+      supabase.from("segments").select("id, code"),
+      fetchUsersWithRepresentativeCodes(supabase)
     ]);
 
   if (prospectError || !prospects) {
@@ -90,6 +108,10 @@ export async function importQuotes(
     return { error: "Impossible de lire les segments dans Supabase." };
   }
 
+  if (usersResult.error) {
+    return { error: usersResult.error };
+  }
+
   const prospectByKey = new Map(
     ((prospects ?? []) as ProspectRow[]).map((prospect) => [
       buildProspectKey(prospect.company_name, prospect.postal_code),
@@ -98,6 +120,11 @@ export async function importQuotes(
   );
   const segmentByCode = new Map(
     ((segments ?? []) as SegmentRow[]).map((segment) => [segment.code, segment.id])
+  );
+  const userByRepresentativeCode = new Map(
+    usersResult.data
+      .filter((user) => user.representative_code)
+      .map((user) => [normalizeRepresentativeCode(user.representative_code), user])
   );
 
   let created = 0;
@@ -113,9 +140,17 @@ export async function importQuotes(
       continue;
     }
 
+    const representative = validated.data.representativeCode
+      ? userByRepresentativeCode.get(normalizeRepresentativeCode(validated.data.representativeCode))
+      : null;
     const prospect = prospectByKey.get(
       buildProspectKey(validated.data.companyName, validated.data.postalCode)
     );
+
+    if (validated.data.representativeCode && !representative) {
+      details.push(`Ligne ${line} : code representant inconnu (${validated.data.representativeCode}).`);
+      continue;
+    }
 
     if (!prospect) {
       details.push(`Ligne ${line} : prospect introuvable pour ${validated.data.companyName} / ${validated.data.postalCode ?? "sans code postal"}.`);
@@ -126,37 +161,57 @@ export async function importQuotes(
       ? segmentByCode.get(validated.data.segmentCode) ?? prospect.segment_id
       : prospect.segment_id;
     const existing = await findExistingOpportunity(supabase, prospect.id, validated.data.title);
+    const commercialId = representative?.id ?? prospect.commercial_id;
     const payload = {
       prospect_id: prospect.id,
-      commercial_id: prospect.commercial_id,
+      commercial_id: commercialId,
       segment_id: segmentId,
       title: validated.data.title,
       description: validated.data.description,
       stage: validated.data.stage,
       estimated_value: validated.data.estimatedValue,
       probability: validated.data.probability,
-      expected_close_date: validated.data.expectedCloseDate,
-      won_at: validated.data.stage === "gagne" ? new Date().toISOString() : null,
+      expected_close_date: toDateColumn(validated.data.expectedCloseDate),
+      won_at: validated.data.stage === "gagne" ? validated.data.concretizedAt ?? new Date().toISOString() : null,
       lost_at: validated.data.stage === "perdu" ? new Date().toISOString() : null,
       loss_reason: validated.data.stage === "perdu" ? "Import devis" : null
     };
 
-    const { error } = existing
-      ? await supabase.from("opportunites").update(payload).eq("id", existing.id)
-      : await supabase.from("opportunites").insert(payload);
+    const saveResult = existing
+      ? await supabase.from("opportunites").update(payload).eq("id", existing.id).select("id").single()
+      : await supabase.from("opportunites").insert(payload).select("id").single();
 
-    if (error) {
-      details.push(`Ligne ${line} : import impossible (${error.message}).`);
+    if (saveResult.error) {
+      details.push(`Ligne ${line} : import impossible (${saveResult.error.message}).`);
       continue;
+    }
+
+    const opportunityId = (saveResult.data as { id: string } | null)?.id ?? existing?.id ?? null;
+
+    const prospectUpdate: Record<string, string> = {
+      pipeline_stage: validated.data.stage,
+      status: prospectStatusByStage(validated.data.stage),
+      commercial_id: commercialId
+    };
+
+    if (validated.data.quoteDate) {
+      prospectUpdate.last_interaction_at = validated.data.quoteDate;
     }
 
     await supabase
       .from("prospects")
-      .update({
-        pipeline_stage: validated.data.stage,
-        status: prospectStatusByStage(validated.data.stage)
-      })
+      .update(prospectUpdate)
       .eq("id", prospect.id);
+
+    if (validated.data.followUpDate) {
+      await createFollowUpThread(supabase, {
+        commercialId,
+        dueAt: validated.data.followUpDate,
+        opportunityId,
+        prospectId: prospect.id,
+        title: validated.data.title
+      });
+    }
 
     if (existing) {
       updated += 1;
@@ -194,21 +249,97 @@ async function findExistingOpportunity(supabase: any, prospectId: string, title:
   ) ?? null;
 }
 
+async function fetchUsersWithRepresentativeCodes(supabase: any) {
+  const result = await supabase
+    .from("users")
+    .select("id, full_name, representative_code");
+
+  if (!isMissingRepresentativeCodeError(result.error)) {
+    return {
+      data: ((result.data ?? []) as UserRow[]),
+      error: null
+    };
+  }
+
+  const fallback = await supabase
+    .from("users")
+    .select("id, full_name");
+
+  if (fallback.error) {
+    return {
+      data: [] as UserRow[],
+      error: `Impossible de lire les utilisateurs : ${fallback.error.message}`
+    };
+  }
+
+  return {
+    data: ((fallback.data ?? []) as Omit<UserRow, "representative_code">[]).map((user) => ({
+      ...user,
+      representative_code: null
+    })),
+    error: null
+  };
+}
+
+async function createFollowUpThread(
+  supabase: any,
+  followUp: {
+    commercialId: string;
+    dueAt: string;
+    opportunityId: string | null;
+    prospectId: string;
+    title: string;
+  }
+) {
+  const { error } = await supabase.from("commercial_action_threads").insert({
+    prospect_id: followUp.prospectId,
+    contact_id: null,
+    owner_user_id: followUp.commercialId,
+    current_action_type: "devis",
+    current_due_date: followUp.dueAt,
+    current_priority: "normale",
+    current_status: "active",
+    prospect_status: "relance_a_faire",
+    current_comment: `Relance devis : ${followUp.title}`
+  });
+
+  if (!error || error.code === "23505") {
+    return;
+  }
+
+  await supabase.from("actions_suivantes").insert({
+    prospect_id: followUp.prospectId,
+    opportunite_id: followUp.opportunityId,
+    commercial_id: followUp.commercialId,
+    type: "devis",
+    title: `Relance devis : ${followUp.title}`,
+    due_at: followUp.dueAt,
+    status: "a_faire",
+    priority: "normale"
+  });
+}
+
 function validateQuoteRow(row: CsvRow, line: number) {
   const companyName = row.company_name?.trim();
-  const title = row.title?.trim();
-  const stage = normalizeStage(row.stage);
+  const quoteCode = row.quote_code?.trim();
+  const subject = row.title?.trim();
+  const title = [quoteCode, subject].filter(Boolean).join(" - ") || quoteCode || subject;
+  const stage = normalizeStage(row.state, row.concretized_at);
   const probability = parsePercent(row.probability);
   const estimatedValue = parseAmount(row.estimated_value);
-  const expectedCloseDate = normalizeDate(row.expected_close_date);
+  const quoteDate = normalizeDate(row.quote_date);
+  const followUpDate = normalizeDate(row.follow_up_date);
+  const concretizedAt = normalizeDate(row.concretized_at);
   const segmentCode = normalizeSegmentCode(row.segment_code);
 
   if (!companyName) return { ok: false as const, error: `Ligne ${line} : entreprise obligatoire.` };
-  if (!title) return { ok: false as const, error: `Ligne ${line} : nom du devis obligatoire.` };
+  if (!quoteCode && !subject) return { ok: false as const, error: `Ligne ${line} : code devis ou sujet obligatoire.` };
   if (!stage) return { ok: false as const, error: `Ligne ${line} : statut pipeline invalide.` };
   if (probability === null) return { ok: false as const, error: `Ligne ${line} : probabilite invalide.` };
   if (estimatedValue === null) return { ok: false as const, error: `Ligne ${line} : montant invalide.` };
-  if (expectedCloseDate === false) return { ok: false as const, error: `Ligne ${line} : date projet invalide.` };
+  if (quoteDate === false) return { ok: false as const, error: `Ligne ${line} : date invalide.` };
+  if (followUpDate === false) return { ok: false as const, error: `Ligne ${line} : date de relance invalide.` };
+  if (concretizedAt === false) return { ok: false as const, error: `Ligne ${line} : date de concretisation invalide.` };
   if (segmentCode === false) return { ok: false as const, error: `Ligne ${line} : segment invalide.` };
 
   return {
@@ -219,10 +350,14 @@ function validateQuoteRow(row: CsvRow, line: number) {
       title,
       estimatedValue,
       probability,
-      expectedCloseDate,
+      expectedCloseDate: concretizedAt ?? followUpDate ?? quoteDate,
+      quoteDate,
+      followUpDate,
+      concretizedAt,
       stage,
       segmentCode,
-      description: optionalString(row.description)
+      representativeCode: optionalString(row.representative_code),
+      description: buildDescription(row, quoteCode, subject)
     }
   };
 }
@@ -236,10 +371,10 @@ function parseCsv(content: string) {
 
   const headers = rows[0].map((header) => normalizeHeader(header));
 
-  if (!headers.includes("company_name") || !headers.includes("title")) {
+  if (!headers.includes("company_name") || (!headers.includes("quote_code") && !headers.includes("title"))) {
     return {
       ok: false as const,
-      error: "En-tetes obligatoires manquants : entreprise et devis."
+      error: "En-tetes obligatoires manquants : entreprise et code devis ou sujet."
     };
   }
 
@@ -307,7 +442,9 @@ function detectDelimiter(content: string) {
 }
 
 function normalizeHeader(value: string) {
-  const normalized = normalizeValue(value).replace(/[^a-z0-9_]+/g, "_");
+  const normalized = normalizeValue(value)
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
   for (const [key, aliases] of Object.entries(headerAliases)) {
     if ((aliases as readonly string[]).includes(normalized)) {
@@ -318,9 +455,10 @@ function normalizeHeader(value: string) {
   return normalized;
 }
 
-function normalizeStage(value?: string): OpportunityStage {
+function normalizeStage(value?: string, concretizedAt?: string): OpportunityStage {
   const normalized = normalizeValue(value ?? "");
 
+  if (concretizedAt?.trim()) return "gagne";
   if (!normalized) return "devis_envoye";
   if (opportunityStages.includes(normalized as OpportunityStage)) return normalized as OpportunityStage;
   if (normalized.includes("faire")) return "devis_a_faire";
@@ -360,7 +498,11 @@ function normalizeDate(value?: string) {
   const date = new Date(normalized);
 
   if (Number.isNaN(date.getTime())) return false;
-  return normalized.slice(0, 10);
+  return normalized.includes("T") ? new Date(normalized).toISOString() : `${normalized.slice(0, 10)}T00:00:00.000Z`;
+}
+
+function toDateColumn(value: string | null) {
+  return value ? value.slice(0, 10) : null;
 }
 
 function parseAmount(value?: string) {
@@ -396,6 +538,31 @@ function normalizeValue(value: string) {
 
 function buildProspectKey(companyName: string, postalCode: string | null) {
   return `${normalizeProspectDuplicateKey(companyName)}::${normalizeProspectDuplicateKey(postalCode)}`;
+}
+
+function normalizeRepresentativeCode(value: string | null | undefined) {
+  return (value ?? "").trim().toUpperCase();
+}
+
+function buildDescription(row: CsvRow, quoteCode?: string, subject?: string) {
+  const items = [
+    optionalString(row.description),
+    quoteCode ? `Code devis : ${quoteCode}` : null,
+    subject ? `Sujet : ${subject}` : null,
+    optionalString(row.quote_date) ? `Date devis : ${row.quote_date}` : null,
+    optionalString(row.total_time) ? `Temps total : ${row.total_time}` : null,
+    optionalString(row.total_cost) ? `Debourse total : ${row.total_cost}` : null,
+    optionalString(row.phone) ? `Telephone : ${row.phone}` : null
+  ].filter(Boolean);
+
+  return items.length ? items.join("\n") : null;
+}
+
+function isMissingRepresentativeCodeError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+  return code === "42703" || message.includes("representative_code");
 }
 
 function prospectStatusByStage(stage: OpportunityStage) {

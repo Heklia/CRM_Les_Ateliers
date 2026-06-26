@@ -11,6 +11,7 @@ type UserRow = {
   full_name: string;
   role: AppRole;
   phone: string | null;
+  representative_code: string | null;
   is_active: boolean;
   daily_task_email_enabled: boolean;
 };
@@ -79,6 +80,7 @@ export default async function AdminPage() {
     fullName: user.full_name,
     role: user.role,
     phone: user.phone,
+    representativeCode: user.representative_code,
     isActive: user.is_active,
     dailyTaskEmailEnabled: user.daily_task_email_enabled ?? true
   }));
@@ -124,11 +126,25 @@ export default async function AdminPage() {
 async function fetchUsers(supabase: any) {
   const withPreference = await supabase
     .from("users")
-    .select("id, email, full_name, role, phone, is_active, daily_task_email_enabled")
+    .select("id, email, full_name, role, phone, representative_code, is_active, daily_task_email_enabled")
     .order("full_name", { ascending: true });
 
-  if (!isMissingPreferenceError(withPreference.error)) {
+  if (!isMissingUserOptionalColumnError(withPreference.error)) {
     return { data: withPreference.data as UserRow[] | null };
+  }
+
+  const withRepresentative = await supabase
+    .from("users")
+    .select("id, email, full_name, role, phone, representative_code, is_active")
+    .order("full_name", { ascending: true });
+
+  if (!isMissingUserOptionalColumnError(withRepresentative.error)) {
+    return {
+      data: ((withRepresentative.data ?? []) as Omit<UserRow, "daily_task_email_enabled">[]).map((user) => ({
+        ...user,
+        daily_task_email_enabled: true
+      }))
+    };
   }
 
   const fallback = await supabase
@@ -137,18 +153,19 @@ async function fetchUsers(supabase: any) {
     .order("full_name", { ascending: true });
 
   return {
-    data: ((fallback.data ?? []) as Omit<UserRow, "daily_task_email_enabled">[]).map((user) => ({
+    data: ((fallback.data ?? []) as Omit<UserRow, "daily_task_email_enabled" | "representative_code">[]).map((user) => ({
       ...user,
+      representative_code: null,
       daily_task_email_enabled: true
     }))
   };
 }
 
-function isMissingPreferenceError(error: unknown) {
+function isMissingUserOptionalColumnError(error: unknown) {
   if (!error || typeof error !== "object") return false;
   const message = "message" in error ? String(error.message) : "";
   const code = "code" in error ? String(error.code) : "";
-  return code === "42703" || message.includes("daily_task_email_enabled");
+  return code === "42703" || message.includes("daily_task_email_enabled") || message.includes("representative_code");
 }
 
 function groupAssignments<T extends { user_id: string }>(
