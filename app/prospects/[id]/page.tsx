@@ -49,6 +49,14 @@ type VisitRow = {
   resume: string;
 };
 
+type ActionEventRow = {
+  id: string;
+  completed_at: string;
+  action_type: string;
+  result: string | null;
+  report: string | null;
+};
+
 type OpportunityRow = {
   id: string;
   prospect_id: string;
@@ -98,6 +106,7 @@ export default async function ProspectDetailPage({
     { data: segments },
     { data: contacts },
     { data: visits },
+    actionEventsResult,
     { data: opportunities },
     imagesResult,
     { data: users },
@@ -116,6 +125,7 @@ export default async function ProspectDetailPage({
         .select("id, visite_date, type, resume")
         .eq("prospect_id", params.id)
         .order("visite_date", { ascending: false }),
+      fetchProspectActionEvents(supabase, params.id),
       supabase
         .from("opportunites")
         .select("id, prospect_id, title, description, stage, estimated_value, probability, expected_close_date, updated_at")
@@ -146,6 +156,7 @@ export default async function ProspectDetailPage({
   const segmentRows = (segments ?? []) as SegmentRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const visitRows = (visits ?? []) as VisitRow[];
+  const actionEventRows = actionEventsResult.data;
   const opportunityRows = (opportunities ?? []) as OpportunityRow[];
   const imageRows = (imagesResult.data ?? []) as ProspectImageRow[];
   const userRows = (users ?? []) as UserRow[];
@@ -196,6 +207,24 @@ export default async function ProspectDetailPage({
       };
     })
   );
+  const historyItems = [
+    ...visitRows.map((visit) => ({
+      id: `visit-${visit.id}`,
+      date: visit.visite_date,
+      type: visit.type,
+      title: getActionLabel(visit.type),
+      detail: visit.resume,
+      source: "Compte-rendu"
+    })),
+    ...actionEventRows.map((event) => ({
+      id: `event-${event.id}`,
+      date: event.completed_at,
+      type: event.action_type,
+      title: getActionLabel(event.action_type),
+      detail: [event.result, event.report].filter(Boolean).join(" - ") || "Action finalisee",
+      source: "Action partagee"
+    }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <main>
@@ -288,29 +317,32 @@ export default async function ProspectDetailPage({
           prospectId={prospectRow.id}
         />
 
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft lg:col-span-2">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Historique des visites</h2>
+            <h2 className="text-base font-semibold">Historique des actions</h2>
             <Link
               className="inline-flex size-9 items-center justify-center rounded-md border border-border"
-              href="/visites/new"
+              href={`/visites/new?prospect_id=${prospectRow.id}`}
             >
               <CalendarPlus size={17} />
             </Link>
           </div>
           <div className="mt-4 space-y-3">
-            {visitRows.length ? (
-              visitRows.map((visit) => (
-                <article className="rounded-md border border-border p-4" key={visit.id}>
+            {historyItems.length ? (
+              historyItems.map((item) => (
+                <article className="rounded-md border border-border p-4" key={item.id}>
                   <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium">{visit.type}</p>
-                    <span className="text-sm text-muted">{formatDate(visit.visite_date)}</span>
+                    <div>
+                      <p className="font-medium">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted">{item.source}</p>
+                    </div>
+                    <span className="text-sm text-muted">{formatDate(item.date)}</span>
                   </div>
-                  <p className="mt-2 text-sm text-muted">{visit.resume}</p>
+                  <p className="mt-2 text-sm text-muted">{item.detail}</p>
                 </article>
               ))
             ) : (
-              <p className="text-sm text-muted">Aucune visite enregistree.</p>
+              <p className="text-sm text-muted">Aucune action enregistree.</p>
             )}
           </div>
         </div>
@@ -340,6 +372,19 @@ function formatDate(value: string) {
     month: "2-digit",
     year: "numeric"
   }).format(new Date(value));
+}
+
+function getActionLabel(value: string) {
+  const labels: Record<string, string> = {
+    appel: "Appel",
+    email: "Email",
+    visite_terrain: "Visite terrain",
+    salon: "Salon",
+    devis: "Devis",
+    autre: "Autre"
+  };
+
+  return labels[value] ?? value;
 }
 
 async function fetchProspect(supabase: ReturnType<typeof createClient>, prospectId: string) {
@@ -374,6 +419,39 @@ async function fetchProspect(supabase: ReturnType<typeof createClient>, prospect
       : null,
     hasCategoryColumn: false
   };
+}
+
+async function fetchProspectActionEvents(
+  supabase: ReturnType<typeof createClient>,
+  prospectId: string
+) {
+  const client = supabase as any;
+  const threadsResult = await client
+    .from("commercial_action_threads")
+    .select("id")
+    .eq("prospect_id", prospectId);
+
+  if (isMissingSchemaError(threadsResult.error, "commercial_action_threads")) {
+    return { data: [] as ActionEventRow[] };
+  }
+
+  const threadIds = ((threadsResult.data ?? []) as { id: string }[]).map((thread) => thread.id);
+
+  if (!threadIds.length) {
+    return { data: [] as ActionEventRow[] };
+  }
+
+  const eventsResult = await client
+    .from("commercial_action_events")
+    .select("id, completed_at, action_type, result, report")
+    .in("action_thread_id", threadIds)
+    .order("completed_at", { ascending: false });
+
+  if (isMissingSchemaError(eventsResult.error, "commercial_action_events")) {
+    return { data: [] as ActionEventRow[] };
+  }
+
+  return { data: (eventsResult.data ?? []) as ActionEventRow[] };
 }
 
 async function fetchProspectImages(supabase: ReturnType<typeof createClient>, prospectId: string) {
