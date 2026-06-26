@@ -99,7 +99,7 @@ export async function createVisitReport(
     commercialId: prospect.commercial_id,
     prospectId: validatedProspectId,
     segmentId: prospect.segment_id,
-    stage: validatedProspectStatus === "perdu" ? "perdu" : "opportunite_detectee",
+    stage: validatedProspectStatus === "perdu" ? "refuse" : "opportunite_detectee",
     need: validatedNeed,
     budget: validatedBudget,
     projectDate: optionalText(formData, "delai_projet"),
@@ -146,7 +146,7 @@ export async function createVisitReport(
     last_interaction_at: validatedVisitDate,
     interest_level: interestMap[validatedInterest],
     status: validatedProspectStatus,
-    ...(validatedProspectStatus === "perdu" ? { pipeline_stage: "perdu" } : {})
+    ...(validatedProspectStatus === "perdu" ? { pipeline_stage: "refuse" } : {})
   };
 
   const { error: updateError } = await supabase
@@ -290,8 +290,8 @@ async function resolveActionOpportunity(
     probability: interestMap[context.interest] * 20,
     stage: context.stage,
     won_at: null,
-    lost_at: context.stage === "perdu" ? new Date().toISOString() : null,
-    loss_reason: context.stage === "perdu" ? "Perdu apres action" : null
+    lost_at: context.stage === "refuse" ? new Date().toISOString() : null,
+    loss_reason: context.stage === "refuse" ? "Refuse apres action" : null
   };
 
   if (!opportunityId) {

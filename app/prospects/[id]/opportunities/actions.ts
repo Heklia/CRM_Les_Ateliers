@@ -140,7 +140,7 @@ async function getOpportunityAccess(
 }
 
 function buildStageUpdate(stage: (typeof opportunityStages)[number], currentLossReason: string | null) {
-  if (stage === "gagne") {
+  if (stage === "accepte") {
     return {
       stage,
       won_at: new Date().toISOString(),
@@ -149,7 +149,7 @@ function buildStageUpdate(stage: (typeof opportunityStages)[number], currentLoss
     };
   }
 
-  if (stage === "perdu") {
+  if (stage === "refuse") {
     return {
       stage,
       won_at: null,

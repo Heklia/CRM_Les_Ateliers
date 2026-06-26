@@ -103,7 +103,7 @@ export async function updateVisitReport(
     commercialId: prospect.commercial_id,
     prospectId: prospectId.data,
     segmentId: prospect.segment_id,
-    stage: prospectStatus.data === "perdu" ? "perdu" : "opportunite_detectee",
+    stage: prospectStatus.data === "perdu" ? "refuse" : "opportunite_detectee",
     need,
     budget: budget.data === null ? null : budget.data * 1000,
     projectDate: optionalText(formData, "delai_projet"),
@@ -148,7 +148,7 @@ export async function updateVisitReport(
       last_interaction_at: visitDate.data,
       interest_level: interestMap[interest.data],
       status: prospectStatus.data,
-      ...(prospectStatus.data === "perdu" ? { pipeline_stage: "perdu" } : {})
+      ...(prospectStatus.data === "perdu" ? { pipeline_stage: "refuse" } : {})
     })
     .eq("id", prospectId.data);
 
@@ -291,8 +291,8 @@ async function resolveActionOpportunity(
     probability: interestMap[context.interest] * 20,
     stage: context.stage,
     won_at: null,
-    lost_at: context.stage === "perdu" ? new Date().toISOString() : null,
-    loss_reason: context.stage === "perdu" ? "Perdu apres action" : null
+    lost_at: context.stage === "refuse" ? new Date().toISOString() : null,
+    loss_reason: context.stage === "refuse" ? "Refuse apres action" : null
   };
 
   if (!opportunityId) {

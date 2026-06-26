@@ -12,14 +12,12 @@ type CommercialOwner = {
 };
 
 const prospectStatusByStage: Record<OpportunityStage, string> = {
-  prospect_identifie: "nouveau",
-  contact_etabli: "contacte",
-  rdv_realise: "en_cours",
   opportunite_detectee: "qualifie",
-  devis_a_faire: "en_cours",
-  devis_envoye: "en_cours",
-  gagne: "client",
-  perdu: "perdu"
+  en_cours: "en_cours",
+  a_reviser: "en_cours",
+  envoye: "en_cours",
+  accepte: "client",
+  refuse: "perdu"
 };
 
 export async function updatePipelineStage({
@@ -83,9 +81,9 @@ export async function updatePipelineStage({
   const now = new Date().toISOString();
   const { error } = await opportunitiesTable.update({
       stage,
-      won_at: stage === "gagne" ? now : null,
-      lost_at: stage === "perdu" ? now : null,
-      loss_reason: stage === "perdu" ? "Perdu depuis le pipeline" : null
+      won_at: stage === "accepte" ? now : null,
+      lost_at: stage === "refuse" ? now : null,
+      loss_reason: stage === "refuse" ? "Refuse depuis le pipeline" : null
     })
     .eq("id", id);
 

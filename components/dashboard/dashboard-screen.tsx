@@ -97,9 +97,7 @@ export function DashboardScreen({
     (sum, prospect) => sum + prospect.estimatedPotential,
     0
   );
-  const detectedOpportunities = filtered.opportunities.filter(
-    (opportunity) => opportunity.stage !== "prospect_identifie"
-  );
+  const detectedOpportunities = filtered.opportunities;
   const hotProspects = filtered.prospects.filter((prospect) => prospect.interest >= 4);
   const completedFollowUpsThisWeek = filtered.visits.filter(
     (visit) => isCompletedFollowUpVisit(visit) && isInCurrentWeek(visit.date)
@@ -265,14 +263,14 @@ export function DashboardScreen({
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={ListTodo} label="Actions a realiser" value={`${filtered.followUps.length}`} detail="Actions ouvertes" />
         <StatCard icon={AlertTriangle} label="Actions en retard" value={`${overdueFollowUps.length}`} detail="Echeance depassee" />
-        <StatCard icon={Target} label="Opportunites detectees" value={`${detectedOpportunities.length}`} detail="Hors simple identification" />
+        <StatCard icon={Target} label="Opportunites detectees" value={`${detectedOpportunities.length}`} detail="Opportunites creees ou importees" />
         <StatCard icon={Flame} label="Prospects chauds" value={`${hotProspects.length}`} detail="Niveau d'interet 4 ou 5" />
         <StatCard icon={Target} label="Score priorite moyen" value={`${averagePriorityScore}/100`} detail="Moyenne des prospects filtres" />
       </section>
 
       <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
         <StatCard icon={Wallet} label="CA potentiel total" value={formatCurrency(potentialTotal)} detail="Somme des potentiels prospects" />
-        <StatCard icon={TrendingUp} label="Taux devis envoye" value={formatRate(rateForStage(filtered.prospects, "devis_envoye"))} detail="Prospects arrives a cette etape" />
+        <StatCard icon={TrendingUp} label="Taux devis envoye" value={formatRate(rateForStage(filtered.prospects, "envoye"))} detail="Prospects arrives a cette etape" />
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">

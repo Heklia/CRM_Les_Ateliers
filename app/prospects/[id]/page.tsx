@@ -12,9 +12,10 @@ import { DeleteSubmitButton } from "@/components/ui/delete-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { canModifyData, getCurrentProfile } from "@/lib/auth/roles";
-import { opportunityStages, segmentLabels, statusLabels } from "@/lib/constants";
+import { segmentLabels, statusLabels } from "@/lib/constants";
+import { toOpportunityStage } from "@/lib/pipeline-stages";
 import { createClient } from "@/lib/supabase/server";
-import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
+import type { ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 type ProspectRow = {
   id: string;
@@ -349,12 +350,6 @@ export default async function ProspectDetailPage({
       </section>
     </main>
   );
-}
-
-function toOpportunityStage(value: string): OpportunityStage {
-  return opportunityStages.includes(value as OpportunityStage)
-    ? (value as OpportunityStage)
-    : "prospect_identifie";
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

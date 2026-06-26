@@ -3,7 +3,8 @@ import { ProspectsScreen, type ProspectListItem } from "@/components/prospects/p
 import { canModifyData, getCurrentProfile } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { scopeByCommercial } from "@/lib/supabase/role-filters";
-import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
+import { toOpportunityStage } from "@/lib/pipeline-stages";
+import type { ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 type ProspectRow = {
   id: string;
@@ -105,7 +106,7 @@ export default async function ProspectsPage() {
     segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
     category: (prospect.category ?? "standard") as ProspectCategory,
-    pipelineStage: prospect.pipeline_stage as OpportunityStage,
+    pipelineStage: toOpportunityStage(prospect.pipeline_stage),
     estimatedPotential: prospect.estimated_potential ?? 0,
     createdAt: prospect.created_at,
     updatedAt: prospect.updated_at,

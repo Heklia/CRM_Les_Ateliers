@@ -178,9 +178,9 @@ export async function importQuotes(
       estimated_value: validated.data.estimatedValue,
       probability: validated.data.probability,
       expected_close_date: toDateColumn(validated.data.expectedCloseDate),
-      won_at: validated.data.stage === "gagne" ? validated.data.concretizedAt ?? new Date().toISOString() : null,
-      lost_at: validated.data.stage === "perdu" ? new Date().toISOString() : null,
-      loss_reason: validated.data.stage === "perdu" ? "Import devis" : null
+      won_at: validated.data.stage === "accepte" ? validated.data.concretizedAt ?? new Date().toISOString() : null,
+      lost_at: validated.data.stage === "refuse" ? new Date().toISOString() : null,
+      loss_reason: validated.data.stage === "refuse" ? "Import devis refuse" : null
     };
 
     const saveResult = existing
@@ -403,7 +403,7 @@ function validateQuoteRow(row: CsvRow, line: number) {
       title,
       estimatedValue,
       probability,
-      expectedCloseDate: stage === "gagne"
+      expectedCloseDate: stage === "accepte"
         ? concretizedAt ?? followUpDate ?? quoteDate
         : followUpDate ?? quoteDate ?? concretizedAt,
       quoteDate,
@@ -513,16 +513,15 @@ function normalizeHeader(value: string) {
 function normalizeStage(value?: string): OpportunityStage {
   const normalized = normalizeValue(value ?? "");
 
-  if (!normalized) return "devis_envoye";
+  if (!normalized) return "envoye";
   if (opportunityStages.includes(normalized as OpportunityStage)) return normalized as OpportunityStage;
-  if (normalized.includes("faire")) return "devis_a_faire";
-  if (normalized.includes("envoye") || normalized.includes("devis")) return "devis_envoye";
-  if (normalized.includes("gagne") || normalized.includes("commande")) return "gagne";
-  if (normalized.includes("perdu")) return "perdu";
+  if (normalized.includes("reviser") || normalized.includes("revision")) return "a_reviser";
+  if (normalized.includes("cours")) return "en_cours";
+  if (normalized.includes("envoye") || normalized.includes("devis")) return "envoye";
+  if (normalized.includes("accepte") || normalized.includes("gagne") || normalized.includes("commande")) return "accepte";
+  if (normalized.includes("refuse") || normalized.includes("perdu")) return "refuse";
   if (normalized.includes("opportunite")) return "opportunite_detectee";
-  if (normalized.includes("rdv")) return "rdv_realise";
-  if (normalized.includes("contact")) return "contact_etabli";
-  return "devis_envoye";
+  return "envoye";
 }
 
 function normalizeSegmentCode(value?: string) {
@@ -620,9 +619,8 @@ function isMissingRepresentativeCodeError(error: unknown) {
 }
 
 function prospectStatusByStage(stage: OpportunityStage) {
-  if (stage === "gagne") return "client";
-  if (stage === "perdu") return "perdu";
+  if (stage === "accepte") return "client";
+  if (stage === "refuse") return "perdu";
   if (stage === "opportunite_detectee") return "qualifie";
-  if (stage === "contact_etabli") return "contacte";
   return "en_cours";
 }

@@ -110,7 +110,7 @@ export function PipelineKanban({ initialCards }: { initialCards: PipelineCard[] 
       </div>
 
       <div className="overflow-x-auto pb-3">
-        <div className="grid min-w-[2200px] grid-cols-8 gap-4">
+        <div className="grid min-w-[1800px] grid-cols-6 gap-4">
         {opportunityStages.map((stage) => {
           const stageCards = cardsByStage[stage];
           const total = stageCards.reduce(

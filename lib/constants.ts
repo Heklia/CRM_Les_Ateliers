@@ -70,23 +70,19 @@ export const commercialProspectStatusLabels = {
 } as const;
 
 export const opportunityStages = [
-  "prospect_identifie",
-  "contact_etabli",
-  "rdv_realise",
   "opportunite_detectee",
-  "devis_a_faire",
-  "devis_envoye",
-  "gagne",
-  "perdu"
+  "en_cours",
+  "a_reviser",
+  "envoye",
+  "accepte",
+  "refuse"
 ] as const;
 
 export const opportunityStageLabels = {
-  prospect_identifie: "Prospect identifie",
-  contact_etabli: "Contact etabli",
-  rdv_realise: "RDV realise",
   opportunite_detectee: "Opportunite detectee",
-  devis_a_faire: "Devis a faire",
-  devis_envoye: "Devis envoye",
-  gagne: "Gagne",
-  perdu: "Perdu"
+  en_cours: "En cours",
+  a_reviser: "A reviser",
+  envoye: "Envoye",
+  accepte: "Accepte",
+  refuse: "Refuse"
 } as const;

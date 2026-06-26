@@ -1,3 +1,4 @@
+import { toOpportunityStage } from "@/lib/pipeline-stages";
 import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } from "@/lib/types";
 
 export type ReportingProspect = {
@@ -266,7 +267,7 @@ export async function getReportingData(supabase: any) {
     segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
     category: (prospect.category ?? "standard") as ProspectCategory,
-    pipelineStage: prospect.pipeline_stage as OpportunityStage,
+    pipelineStage: toOpportunityStage(prospect.pipeline_stage),
     estimatedPotential: prospect.estimated_potential ?? 0,
     createdAt: prospect.created_at,
     updatedAt: prospect.updated_at,
@@ -312,7 +313,7 @@ export async function getReportingData(supabase: any) {
         ? assignedUsersByProspect.get(prospect.id) ?? [userById.get(opportunity.commercial_id) ?? "Commercial"]
         : [userById.get(opportunity.commercial_id) ?? "Commercial"],
       segment: (segmentById.get(opportunity.segment_id) ?? "autres_agencements") as SegmentCode,
-      stage: opportunity.stage as OpportunityStage,
+      stage: toOpportunityStage(opportunity.stage),
       value: opportunity.estimated_value ?? 0,
       probability: opportunity.probability ?? 0,
       createdAt: opportunity.created_at,

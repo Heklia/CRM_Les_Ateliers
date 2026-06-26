@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { scopeByCommercial } from "@/lib/supabase/role-filters";
-import type { OpportunityStage } from "@/lib/types";
+import { toOpportunityStage } from "@/lib/pipeline-stages";
 
 type PipelineProspectRow = {
   id: string;
@@ -70,7 +70,7 @@ export default async function PipelinePage() {
     title: opportunity.title,
     prospectName: prospectById.get(opportunity.prospect_id)?.company_name ?? "Prospect",
     city: prospectById.get(opportunity.prospect_id)?.city ?? null,
-    stage: opportunity.stage as OpportunityStage,
+    stage: toOpportunityStage(opportunity.stage),
     estimatedPotential: opportunity.estimated_value,
     probability: opportunity.probability,
     expectedCloseDate: opportunity.expected_close_date

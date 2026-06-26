@@ -46,14 +46,12 @@ export type CommercialProspectStatus =
   | "sans_suite_temporaire";
 
 export type OpportunityStage =
-  | "prospect_identifie"
-  | "contact_etabli"
-  | "rdv_realise"
   | "opportunite_detectee"
-  | "devis_a_faire"
-  | "devis_envoye"
-  | "gagne"
-  | "perdu";
+  | "en_cours"
+  | "a_reviser"
+  | "envoye"
+  | "accepte"
+  | "refuse";
 
 export type NavItem = {
   label: string;

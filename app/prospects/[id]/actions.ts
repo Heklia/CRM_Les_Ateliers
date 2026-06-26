@@ -73,7 +73,7 @@ export async function updateProspectStatus(formData: FormData) {
     .from("prospects")
     .update({
       status: status.data,
-      ...(status.data === "perdu" ? { pipeline_stage: "perdu" } : {})
+      ...(status.data === "perdu" ? { pipeline_stage: "refuse" } : {})
     })
     .eq("id", prospectId.data);
 
