@@ -53,6 +53,8 @@ type DashboardScreenProps = {
 type CommercialMetric = {
   commercialId: string;
   commercial: string;
+  assignedProspects: number;
+  assignedProspectIds: string[];
   visits: number;
   prospects: number;
   quotes: number;
@@ -314,25 +316,30 @@ function FollowUpsSection({
 }
 
 function CommercialTable({ metrics }: { metrics: CommercialMetric[] }) {
+  const totalAssignedProspects = new Set(
+    metrics.flatMap((item) => item.assignedProspectIds)
+  ).size;
   const total = metrics.reduce<CommercialMetric>((acc, item) => ({
     commercialId: "total",
     commercial: "Total",
+    assignedProspects: totalAssignedProspects,
+    assignedProspectIds: [],
     visits: acc.visits + item.visits,
     prospects: acc.prospects + item.prospects,
     quotes: acc.quotes + item.quotes,
     quoteAmount: acc.quoteAmount + item.quoteAmount,
     margin: acc.margin + item.margin,
     completedFollowUps: acc.completedFollowUps + item.completedFollowUps
-  }), { commercialId: "total", commercial: "Total", visits: 0, prospects: 0, quotes: 0, quoteAmount: 0, margin: 0, completedFollowUps: 0 });
+  }), { commercialId: "total", commercial: "Total", assignedProspects: totalAssignedProspects, assignedProspectIds: [], visits: 0, prospects: 0, quotes: 0, quoteAmount: 0, margin: 0, completedFollowUps: 0 });
 
   return (
     <section className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface p-5 shadow-soft">
       <table className="w-full min-w-[850px] text-left text-sm">
-        <thead className="text-xs uppercase text-muted"><tr className="border-b border-border"><th className="py-3">Commercial</th><th>Visites</th><th>Prospects</th><th>Devis</th><th>Montant devis</th><th>Marge</th><th>Relances</th></tr></thead>
+        <thead className="text-xs uppercase text-muted"><tr className="border-b border-border"><th className="py-3">Commercial</th><th>Prospects affectes</th><th>Visites</th><th>Nouveaux prospects</th><th>Devis</th><th>Montant devis</th><th>Marge</th><th>Relances</th></tr></thead>
         <tbody>
           {[...metrics, total].map((item) => (
             <tr className={`border-b border-border last:border-0 ${item.commercialId === "total" ? "font-semibold" : ""}`} key={item.commercialId}>
-              <td className="py-3">{item.commercial}</td><td>{item.visits}</td><td>{item.prospects}</td><td>{item.quotes}</td><td>{formatCurrency(item.quoteAmount)}</td><td>{formatCurrency(item.margin)}</td><td>{item.completedFollowUps}</td>
+              <td className="py-3">{item.commercial}</td><td>{item.assignedProspects}</td><td>{item.visits}</td><td>{item.prospects}</td><td>{item.quotes}</td><td>{formatCurrency(item.quoteAmount)}</td><td>{formatCurrency(item.margin)}</td><td>{item.completedFollowUps}</td>
             </tr>
           ))}
         </tbody>
@@ -350,9 +357,16 @@ function buildCommercialMetric(
   visits: ReportingVisit[]
 ): CommercialMetric {
   const quotes = opportunities.filter((item) => item.commercialId === commercial.id && item.isQuote && inPeriod(item.quoteDate ?? item.createdAt));
+  const assignedProspectIds = prospects
+    .filter((item) =>
+      (item.assignedUserIds ?? [item.commercialId]).includes(commercial.id)
+    )
+    .map((item) => item.id);
   return {
     commercialId: commercial.id,
     commercial: commercial.name,
+    assignedProspects: assignedProspectIds.length,
+    assignedProspectIds,
     visits: visits.filter((item) => item.commercialId === commercial.id && item.type === "visite_terrain" && inPeriod(item.date)).length,
     prospects: prospects.filter((item) => item.commercialId === commercial.id && inPeriod(item.createdAt)).length,
     quotes: quotes.length,

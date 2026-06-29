@@ -8,6 +8,7 @@ export type ReportingProspect = {
   contact: string;
   commercial: string;
   assignedUsers: string[];
+  assignedUserIds?: string[];
   city: string;
   segment: SegmentCode;
   status: ProspectStatus;
@@ -261,6 +262,7 @@ export async function getReportingData(supabase: any) {
   const segmentById = new Map(segmentRows.map((segment) => [segment.id, segment.code]));
   const prospectById = new Map(prospectRows.map((prospect) => [prospect.id, prospect]));
   const assignedUsersByProspect = new Map<string, string[]>();
+  const assignedUserIdsByProspect = new Map<string, string[]>();
   const assignedUsersByVisit = new Map<string, string[]>();
   const firstActionByProspect = new Map<string, string>();
   const ownerByActionThread = new Map(
@@ -270,6 +272,10 @@ export async function getReportingData(supabase: any) {
   prospectAssignmentRows.forEach((assignment) => {
     const name = userById.get(assignment.user_id);
     if (!name) return;
+    assignedUserIdsByProspect.set(assignment.prospect_id, [
+      ...(assignedUserIdsByProspect.get(assignment.prospect_id) ?? []),
+      assignment.user_id
+    ]);
     assignedUsersByProspect.set(assignment.prospect_id, [
       ...(assignedUsersByProspect.get(assignment.prospect_id) ?? []),
       name
@@ -300,6 +306,7 @@ export async function getReportingData(supabase: any) {
     contact: contactByProspect.get(prospect.id) ?? "Contact non renseigne",
     commercial: userById.get(prospect.commercial_id) ?? "Commercial",
     assignedUsers: assignedUsersByProspect.get(prospect.id) ?? [userById.get(prospect.commercial_id) ?? "Commercial"],
+    assignedUserIds: assignedUserIdsByProspect.get(prospect.id) ?? [prospect.commercial_id],
     city: prospect.city ?? "",
     segment: (segmentById.get(prospect.segment_id) ?? "autres_agencements") as SegmentCode,
     status: prospect.status as ProspectStatus,
