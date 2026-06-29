@@ -99,7 +99,7 @@ export async function createVisitReport(
     commercialId: prospect.commercial_id,
     prospectId: validatedProspectId,
     segmentId: prospect.segment_id,
-    stage: validatedProspectStatus === "perdu" ? "refuse" : "opportunite_detectee",
+    stage: validatedProspectStatus === "perdu" ? "refuse" : "en_cours",
     need: validatedNeed,
     budget: validatedBudget,
     projectDate: optionalText(formData, "delai_projet"),

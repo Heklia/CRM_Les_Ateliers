@@ -510,18 +510,12 @@ function normalizeHeader(value: string) {
   return normalized;
 }
 
-function normalizeStage(value?: string): OpportunityStage {
+function normalizeStage(value?: string): OpportunityStage | false {
   const normalized = normalizeValue(value ?? "");
 
-  if (!normalized) return "envoye";
+  if (!normalized) return false;
   if (opportunityStages.includes(normalized as OpportunityStage)) return normalized as OpportunityStage;
-  if (normalized.includes("reviser") || normalized.includes("revision")) return "a_reviser";
-  if (normalized.includes("cours")) return "en_cours";
-  if (normalized.includes("envoye") || normalized.includes("devis")) return "envoye";
-  if (normalized.includes("accepte") || normalized.includes("gagne") || normalized.includes("commande")) return "accepte";
-  if (normalized.includes("refuse") || normalized.includes("perdu")) return "refuse";
-  if (normalized.includes("opportunite")) return "opportunite_detectee";
-  return "envoye";
+  return false;
 }
 
 function normalizeSegmentCode(value?: string) {
@@ -621,6 +615,5 @@ function isMissingRepresentativeCodeError(error: unknown) {
 function prospectStatusByStage(stage: OpportunityStage) {
   if (stage === "accepte") return "client";
   if (stage === "refuse") return "perdu";
-  if (stage === "opportunite_detectee") return "qualifie";
   return "en_cours";
 }

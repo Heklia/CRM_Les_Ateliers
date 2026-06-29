@@ -12,7 +12,6 @@ type CommercialOwner = {
 };
 
 const prospectStatusByStage: Record<OpportunityStage, string> = {
-  opportunite_detectee: "qualifie",
   en_cours: "en_cours",
   a_reviser: "en_cours",
   envoye: "en_cours",

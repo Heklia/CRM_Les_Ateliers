@@ -46,7 +46,6 @@ export type CommercialProspectStatus =
   | "sans_suite_temporaire";
 
 export type OpportunityStage =
-  | "opportunite_detectee"
   | "en_cours"
   | "a_reviser"
   | "envoye"

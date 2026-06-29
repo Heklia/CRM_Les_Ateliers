@@ -11,7 +11,7 @@ export function toOpportunityStage(value: string | null | undefined): Opportunit
     case "contact_etabli":
     case "rdv_realise":
     case "opportunite_detectee":
-      return "opportunite_detectee";
+      return "en_cours";
     case "devis_a_faire":
       return "en_cours";
     case "devis_envoye":
@@ -21,6 +21,6 @@ export function toOpportunityStage(value: string | null | undefined): Opportunit
     case "perdu":
       return "refuse";
     default:
-      return "opportunite_detectee";
+      return "en_cours";
   }
 }

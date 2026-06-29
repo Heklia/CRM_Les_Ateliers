@@ -70,7 +70,6 @@ export const commercialProspectStatusLabels = {
 } as const;
 
 export const opportunityStages = [
-  "opportunite_detectee",
   "en_cours",
   "a_reviser",
   "envoye",
@@ -79,7 +78,6 @@ export const opportunityStages = [
 ] as const;
 
 export const opportunityStageLabels = {
-  opportunite_detectee: "Opportunite detectee",
   en_cours: "En cours",
   a_reviser: "A reviser",
   envoye: "Envoye",

@@ -103,7 +103,7 @@ export async function updateVisitReport(
     commercialId: prospect.commercial_id,
     prospectId: prospectId.data,
     segmentId: prospect.segment_id,
-    stage: prospectStatus.data === "perdu" ? "refuse" : "opportunite_detectee",
+    stage: prospectStatus.data === "perdu" ? "refuse" : "en_cours",
     need,
     budget: budget.data === null ? null : budget.data * 1000,
     projectDate: optionalText(formData, "delai_projet"),
