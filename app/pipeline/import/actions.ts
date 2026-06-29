@@ -174,11 +174,17 @@ export async function importQuotes(
       segment_id: segmentId,
       title: validated.data.title,
       description: validated.data.description,
+      is_quote: true,
+      quote_code: validated.data.quoteCode,
+      quote_date: toDateColumn(validated.data.quoteDate),
+      total_cost: validated.data.totalCost,
       stage: validated.data.stage,
       estimated_value: validated.data.estimatedValue,
       probability: validated.data.probability,
       expected_close_date: toDateColumn(validated.data.expectedCloseDate),
-      won_at: validated.data.stage === "accepte" ? validated.data.concretizedAt ?? new Date().toISOString() : null,
+      won_at: validated.data.stage === "accepte"
+        ? validated.data.concretizedAt ?? existing?.won_at ?? new Date().toISOString()
+        : null,
       lost_at: validated.data.stage === "refuse" ? new Date().toISOString() : null,
       loss_reason: validated.data.stage === "refuse" ? "Import devis refuse" : null
     };
@@ -246,10 +252,10 @@ export async function importQuotes(
 async function findExistingOpportunity(supabase: any, prospectId: string, title: string) {
   const { data } = await supabase
     .from("opportunites")
-    .select("id, title")
+    .select("id, title, won_at")
     .eq("prospect_id", prospectId);
 
-  return ((data ?? []) as { id: string; title: string }[]).find(
+  return ((data ?? []) as { id: string; title: string; won_at: string | null }[]).find(
     (opportunity) =>
       normalizeProspectDuplicateKey(opportunity.title) === normalizeProspectDuplicateKey(title)
   ) ?? null;
@@ -380,6 +386,7 @@ function validateQuoteRow(row: CsvRow, line: number) {
   const stage = normalizeStage(row.state);
   const probability = parsePercent(row.probability);
   const estimatedValue = parseAmount(row.estimated_value);
+  const totalCost = parseAmount(row.total_cost);
   const quoteDate = normalizeDate(row.quote_date);
   const followUpDate = normalizeDate(row.follow_up_date);
   const concretizedAt = normalizeDate(row.concretized_at);
@@ -390,6 +397,7 @@ function validateQuoteRow(row: CsvRow, line: number) {
   if (!stage) return { ok: false as const, error: `Ligne ${line} : statut pipeline invalide.` };
   if (probability === null) return { ok: false as const, error: `Ligne ${line} : probabilite invalide.` };
   if (estimatedValue === null) return { ok: false as const, error: `Ligne ${line} : montant invalide.` };
+  if (row.total_cost?.trim() && totalCost === null) return { ok: false as const, error: `Ligne ${line} : debourse invalide.` };
   if (quoteDate === false) return { ok: false as const, error: `Ligne ${line} : date invalide.` };
   if (followUpDate === false) return { ok: false as const, error: `Ligne ${line} : date de relance invalide.` };
   if (concretizedAt === false) return { ok: false as const, error: `Ligne ${line} : date de concretisation invalide.` };
@@ -399,9 +407,11 @@ function validateQuoteRow(row: CsvRow, line: number) {
     ok: true as const,
     data: {
       companyName,
+      quoteCode: quoteCode ?? null,
       postalCode: optionalString(row.postal_code),
       title,
       estimatedValue,
+      totalCost,
       probability,
       expectedCloseDate: stage === "accepte"
         ? concretizedAt ?? followUpDate ?? quoteDate

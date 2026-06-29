@@ -3,6 +3,7 @@ import type { OpportunityStage, ProspectCategory, ProspectStatus, SegmentCode } 
 
 export type ReportingProspect = {
   id: string;
+  commercialId?: string;
   company: string;
   contact: string;
   commercial: string;
@@ -26,6 +27,7 @@ export type ReportingProspect = {
 
 export type ReportingVisit = {
   id: string;
+  commercialId?: string;
   company: string;
   contact: string;
   commercial: string;
@@ -41,6 +43,8 @@ export type ReportingVisit = {
 
 export type ReportingOpportunity = {
   id: string;
+  prospectId: string;
+  commercialId?: string;
   title: string;
   company: string;
   commercial: string;
@@ -49,12 +53,19 @@ export type ReportingOpportunity = {
   stage: OpportunityStage;
   value: number;
   probability: number;
+  isQuote: boolean;
+  quoteCode: string | null;
+  quoteDate: string | null;
+  totalCost: number | null;
+  margin: number | null;
+  wonAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export type ReportingFollowUp = {
   id: string;
+  commercialId?: string;
   prospectId: string;
   opportunityId: string | null;
   previousVisitId: string | null;
@@ -68,6 +79,14 @@ export type ReportingFollowUp = {
   segment: SegmentCode | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ReportingCompletedAction = {
+  id: string;
+  commercialId: string;
+  commercial: string;
+  completedAt: string;
+  type: string;
 };
 
 type ProspectRow = {
@@ -138,9 +157,21 @@ type OpportunityRow = {
   title: string;
   stage: string;
   estimated_value: number | null;
+  is_quote: boolean;
+  quote_code: string | null;
+  quote_date: string | null;
+  total_cost: number | null;
+  won_at: string | null;
   probability: number | null;
   created_at: string;
   updated_at: string;
+};
+
+type ActionEventRow = {
+  id: string;
+  action_thread_id: string;
+  completed_at: string;
+  action_type: string;
 };
 
 type FollowUpRow = {
@@ -175,12 +206,13 @@ type ActionThreadRow = {
 export async function getReportingData(supabase: any) {
   const prospectsResult = await fetchReportingProspects(supabase);
   const actionThreadsResult = await fetchReportingActionThreads(supabase);
+  const opportunitiesResult = await fetchReportingOpportunities(supabase);
   const [
     { data: contacts },
     { data: users },
     { data: segments },
     { data: visits },
-    { data: opportunities },
+    { data: actionEvents },
     { data: prospectAssignments },
     { data: visitAssignments }
   ] = await Promise.all([
@@ -195,9 +227,9 @@ export async function getReportingData(supabase: any) {
       .select("id, prospect_id, contact_id, commercial_id, visite_date, type, resume, niveau_interet, created_at, updated_at")
       .order("visite_date", { ascending: false }),
     supabase
-      .from("opportunites")
-      .select("id, prospect_id, commercial_id, segment_id, title, stage, estimated_value, probability, created_at, updated_at")
-      .order("created_at", { ascending: false }),
+      .from("commercial_action_events")
+      .select("id, action_thread_id, completed_at, action_type")
+      .order("completed_at", { ascending: false }),
     supabase.from("prospect_assignments").select("prospect_id, user_id"),
     supabase.from("visite_assignments").select("visite_id, user_id")
   ]);
@@ -207,7 +239,8 @@ export async function getReportingData(supabase: any) {
   const userRows = (users ?? []) as UserRow[];
   const segmentRows = (segments ?? []) as SegmentRow[];
   const visitRows = (visits ?? []) as VisitRow[];
-  const opportunityRows = (opportunities ?? []) as OpportunityRow[];
+  const opportunityRows = (opportunitiesResult.data ?? []) as OpportunityRow[];
+  const actionEventRows = (actionEvents ?? []) as ActionEventRow[];
   const followUpRows = (actionThreadsResult.data ?? []) as FollowUpRow[];
   const prospectAssignmentRows = (prospectAssignments ?? []) as ProspectAssignmentRow[];
   const visitAssignmentRows = (visitAssignments ?? []) as VisitAssignmentRow[];
@@ -230,6 +263,9 @@ export async function getReportingData(supabase: any) {
   const assignedUsersByProspect = new Map<string, string[]>();
   const assignedUsersByVisit = new Map<string, string[]>();
   const firstActionByProspect = new Map<string, string>();
+  const ownerByActionThread = new Map(
+    followUpRows.map((followUp) => [followUp.id, followUp.commercial_id])
+  );
 
   prospectAssignmentRows.forEach((assignment) => {
     const name = userById.get(assignment.user_id);
@@ -259,6 +295,7 @@ export async function getReportingData(supabase: any) {
 
   const mappedProspects: ReportingProspect[] = prospectRows.map((prospect) => ({
     id: prospect.id,
+    commercialId: prospect.commercial_id,
     company: prospect.company_name,
     contact: contactByProspect.get(prospect.id) ?? "Contact non renseigne",
     commercial: userById.get(prospect.commercial_id) ?? "Commercial",
@@ -285,6 +322,7 @@ export async function getReportingData(supabase: any) {
 
     return {
       id: visit.id,
+      commercialId: visit.commercial_id,
       company: prospect?.company_name ?? "Prospect",
       contact: visit.contact_id
         ? contactById.get(visit.contact_id) ?? "Contact non renseigne"
@@ -306,6 +344,8 @@ export async function getReportingData(supabase: any) {
 
     return {
       id: opportunity.id,
+      prospectId: opportunity.prospect_id,
+      commercialId: opportunity.commercial_id,
       title: opportunity.title,
       company: prospect?.company_name ?? "Prospect",
       commercial: userById.get(opportunity.commercial_id) ?? "Commercial",
@@ -316,6 +356,15 @@ export async function getReportingData(supabase: any) {
       stage: toOpportunityStage(opportunity.stage),
       value: opportunity.estimated_value ?? 0,
       probability: opportunity.probability ?? 0,
+      isQuote: opportunity.is_quote,
+      quoteCode: opportunity.quote_code,
+      quoteDate: opportunity.quote_date,
+      totalCost: opportunity.total_cost,
+      margin:
+        opportunity.estimated_value !== null && opportunity.total_cost !== null
+          ? opportunity.estimated_value - opportunity.total_cost
+          : null,
+      wonAt: opportunity.won_at,
       createdAt: opportunity.created_at,
       updatedAt: opportunity.updated_at
     };
@@ -326,6 +375,7 @@ export async function getReportingData(supabase: any) {
 
     return {
       id: followUp.id,
+      commercialId: followUp.commercial_id,
       prospectId: followUp.prospect_id,
       opportunityId: followUp.opportunite_id,
       previousVisitId: followUp.visite_id,
@@ -344,11 +394,55 @@ export async function getReportingData(supabase: any) {
     };
   });
 
+  const mappedCompletedActions: ReportingCompletedAction[] = actionEventRows
+    .map((event) => {
+      const commercialId = ownerByActionThread.get(event.action_thread_id);
+      if (!commercialId) return null;
+
+      return {
+        id: event.id,
+        commercialId,
+        commercial: userById.get(commercialId) ?? "Commercial",
+        completedAt: event.completed_at,
+        type: event.action_type
+      };
+    })
+    .filter((event): event is ReportingCompletedAction => event !== null);
+
   return {
+    completedActions: mappedCompletedActions,
     followUps: mappedFollowUps,
     opportunities: mappedOpportunities,
     prospects: mappedProspects,
     visits: mappedVisits
+  };
+}
+
+async function fetchReportingOpportunities(supabase: any) {
+  const withQuoteFields = await supabase
+    .from("opportunites")
+    .select("id, prospect_id, commercial_id, segment_id, title, stage, estimated_value, probability, is_quote, quote_code, quote_date, total_cost, won_at, created_at, updated_at")
+    .order("created_at", { ascending: false });
+
+  if (!isMissingQuoteFieldsError(withQuoteFields.error)) {
+    return { data: withQuoteFields.data as OpportunityRow[] | null };
+  }
+
+  const fallback = await supabase
+    .from("opportunites")
+    .select("id, prospect_id, commercial_id, segment_id, title, stage, estimated_value, probability, won_at, created_at, updated_at")
+    .order("created_at", { ascending: false });
+
+  return {
+    data: ((fallback.data ?? []) as Omit<OpportunityRow, "is_quote" | "quote_code" | "quote_date" | "total_cost">[]).map(
+      (opportunity) => ({
+        ...opportunity,
+        is_quote: false,
+        quote_code: null,
+        quote_date: null,
+        total_cost: null
+      })
+    )
   };
 }
 
@@ -426,6 +520,13 @@ function isMissingCategoryError(error: unknown) {
   const code = "code" in error ? String(error.code) : "";
 
   return code === "42703" || message.includes("category");
+}
+
+function isMissingQuoteFieldsError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const message = "message" in error ? String(error.message) : "";
+  const code = "code" in error ? String(error.code) : "";
+  return code === "42703" || message.includes("is_quote") || message.includes("quote_date");
 }
 
 function isMissingTableError(error: unknown) {

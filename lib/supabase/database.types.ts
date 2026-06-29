@@ -141,6 +141,10 @@ export type Database = {
           description: string | null;
           stage: string;
           estimated_value: number | null;
+          is_quote: boolean;
+          quote_code: string | null;
+          quote_date: string | null;
+          total_cost: number | null;
           probability: number;
           expected_close_date: string | null;
           won_at: string | null;

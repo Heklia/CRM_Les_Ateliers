@@ -2,33 +2,30 @@
 
 import { useMemo, useState } from "react";
 import {
+  Activity,
+  BadgeEuro,
   CalendarCheck,
-  AlertTriangle,
-  Flame,
+  FileText,
+  Percent,
   PhoneCall,
-  ListTodo,
-  Target,
+  RefreshCw,
+  ShoppingCart,
   TrendingUp,
+  UserPlus,
   Users,
   Wallet
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusPill } from "@/components/ui/status-pill";
-import {
-  opportunityStageLabels,
-  opportunityStages,
-  segmentLabels
-} from "@/lib/constants";
-import { calculatePriorityScore, getPriorityTone } from "@/lib/priority-score";
+import type { CurrentProfile } from "@/lib/auth/roles";
 import type {
+  ReportingCompletedAction,
   ReportingFollowUp,
   ReportingOpportunity,
   ReportingProspect,
   ReportingVisit
 } from "@/lib/reporting-data";
-import type { CurrentProfile } from "@/lib/auth/roles";
-import type { OpportunityStage, SegmentCode } from "@/lib/types";
 
 const periodOptions = [
   { label: "30 derniers jours", value: "30" },
@@ -45,6 +42,7 @@ const followUpPeriodOptions = [
 ] as const;
 
 type DashboardScreenProps = {
+  completedActions: ReportingCompletedAction[];
   followUps: ReportingFollowUp[];
   opportunities: ReportingOpportunity[];
   profile: CurrentProfile;
@@ -52,105 +50,153 @@ type DashboardScreenProps = {
   visits: ReportingVisit[];
 };
 
+type CommercialMetric = {
+  commercialId: string;
+  commercial: string;
+  visits: number;
+  prospects: number;
+  quotes: number;
+  quoteAmount: number;
+  margin: number;
+  completedFollowUps: number;
+};
+
 export function DashboardScreen({
+  completedActions,
   followUps,
   opportunities,
   profile,
   prospects,
   visits
 }: DashboardScreenProps) {
-  const [commercial, setCommercial] = useState("");
+  const [commercialId, setCommercialId] = useState("");
   const [period, setPeriod] = useState<(typeof periodOptions)[number]["value"]>("30");
   const [followUpPeriod, setFollowUpPeriod] =
     useState<(typeof followUpPeriodOptions)[number]["value"]>("today");
-  const canFilterCommercials = profile.role === "admin";
+  const isAdmin = profile.role === "admin";
+  const selectedCommercialId = isAdmin ? commercialId : profile.id;
 
   const commercials = useMemo(() => {
-    return Array.from(
-      new Set([
-        ...prospects.map((prospect) => prospect.commercial),
-        ...opportunities.map((opportunity) => opportunity.commercial)
-      ])
-    ).sort();
-  }, [opportunities, prospects]);
+    const byId = new Map<string, string>();
+    prospects.forEach((item) => item.commercialId && byId.set(item.commercialId, item.commercial));
+    opportunities.forEach((item) => item.commercialId && byId.set(item.commercialId, item.commercial));
+    visits.forEach((item) => item.commercialId && byId.set(item.commercialId, item.commercial));
+    completedActions.forEach((item) => byId.set(item.commercialId, item.commercial));
+    return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [completedActions, opportunities, prospects, visits]);
 
-  const filtered = useMemo(() => {
-    const inPeriod = createPeriodFilter(period);
-    const byCommercial = (value: string) =>
-      !canFilterCommercials || commercial === "" || value === commercial;
+  const inPeriod = useMemo(() => createPeriodFilter(period), [period]);
+  const matchesCommercial = (value?: string) =>
+    selectedCommercialId === "" || value === selectedCommercialId;
 
-    return {
-      prospects: prospects.filter(
-        (prospect) => byCommercial(prospect.commercial) && inPeriod(prospect.createdAt)
+  const periodProspects = prospects.filter(
+    (item) => matchesCommercial(item.commercialId) && inPeriod(item.createdAt)
+  );
+  const periodVisits = visits.filter(
+    (item) =>
+      matchesCommercial(item.commercialId) &&
+      item.type === "visite_terrain" &&
+      inPeriod(item.date)
+  );
+  const periodQuotes = opportunities.filter(
+    (item) =>
+      item.isQuote &&
+      matchesCommercial(item.commercialId) &&
+      inPeriod(item.quoteDate ?? item.createdAt)
+  );
+  const periodCompletedActions = completedActions.filter(
+    (item) => matchesCommercial(item.commercialId) && inPeriod(item.completedAt)
+  );
+  const quoteAmount = sum(periodQuotes.map((item) => item.value));
+  const quoteMargins = periodQuotes.flatMap((item) =>
+    item.margin === null ? [] : [item.margin]
+  );
+  const quoteMargin = sum(quoteMargins);
+  const openFollowUps = followUps.filter(
+    (item) => matchesCommercial(item.commercialId) && isOpenFollowUp(item)
+  );
+  const visibleFollowUps = openFollowUps.filter((item) =>
+    isInFollowUpPeriod(item.dueAt, followUpPeriod)
+  );
+
+  const commercialMetrics = useMemo(
+    () =>
+      commercials.map((commercial) =>
+        buildCommercialMetric(
+          commercial,
+          createPeriodFilter(period),
+          completedActions,
+          opportunities,
+          prospects,
+          visits
+        )
       ),
-      visits: visits.filter((visit) => byCommercial(visit.commercial) && inPeriod(visit.date)),
-      followUps: followUps.filter(
-        (followUp) => byCommercial(followUp.commercial) && isOpenFollowUp(followUp)
-      ),
-      opportunities: opportunities.filter(
-        (opportunity) => byCommercial(opportunity.commercial) && inPeriod(opportunity.createdAt)
-      )
-    };
-  }, [canFilterCommercials, commercial, followUps, opportunities, period, prospects, visits]);
+    [commercials, completedActions, opportunities, period, prospects, visits]
+  );
+  const displayedCommercialMetrics = commercialId
+    ? commercialMetrics.filter((item) => item.commercialId === commercialId)
+    : commercialMetrics;
 
-  const potentialTotal = filtered.prospects.reduce(
-    (sum, prospect) => sum + prospect.estimatedPotential,
-    0
+  const acceptedQuotes = opportunities.filter(
+    (item) =>
+      item.isQuote &&
+      item.stage === "accepte" &&
+      matchesCommercial(item.commercialId) &&
+      inPeriod(item.wonAt ?? item.updatedAt)
   );
-  const detectedOpportunities = filtered.opportunities;
-  const hotProspects = filtered.prospects.filter((prospect) => prospect.interest >= 4);
-  const completedFollowUpsThisWeek = filtered.visits.filter(
-    (visit) => isCompletedFollowUpVisit(visit) && isInCurrentWeek(visit.date)
+  const acceptedQuoteAmount = sum(acceptedQuotes.map((item) => item.value));
+  const acceptedMargin = sum(
+    acceptedQuotes.flatMap((item) => (item.margin === null ? [] : [item.margin]))
   );
-  const completedFollowUpsThisMonth = filtered.visits.filter(
-    (visit) => isCompletedFollowUpVisit(visit) && isInCurrentMonth(visit.date)
-  );
-  const visibleFollowUps = filtered.followUps.filter((followUp) =>
-    isInFollowUpPeriod(followUp.dueAt, followUpPeriod)
-  );
-  const overdueFollowUps = filtered.followUps.filter((followUp) => followUp.status === "en_retard");
-  const averagePriorityScore = filtered.prospects.length
-    ? Math.round(
-        filtered.prospects.reduce((sum, prospect) => sum + getProspectScore(prospect), 0) /
-          filtered.prospects.length
-      )
+  const transformationRate = periodQuotes.length
+    ? periodQuotes.filter((item) => item.stage === "accepte").length / periodQuotes.length
     : 0;
-  const potentialBySegment = getPotentialBySegment(filtered.prospects);
-  const bestOpportunities = [...filtered.opportunities].sort((a, b) => b.value - a.value);
-  const prospectScoreByCompany = new Map(
-    filtered.prospects.map((prospect) => [prospect.company, getProspectScore(prospect)])
-  );
-  const maxSegmentPotential = Math.max(
-    ...potentialBySegment.map((item) => item.value),
-    1
-  );
-  const hasSegmentPotential = potentialBySegment.some((item) => item.value > 0);
+  const newClients = new Set(acceptedQuotes.map((item) => item.prospectId)).size;
+  const activeClientThreshold = new Date();
+  activeClientThreshold.setMonth(activeClientThreshold.getMonth() - 3);
+  const activeClients = new Set(
+    opportunities
+      .filter(
+        (item) =>
+          item.isQuote &&
+          matchesCommercial(item.commercialId) &&
+          new Date(item.quoteDate ?? item.createdAt) >= activeClientThreshold
+      )
+      .map((item) => item.prospectId)
+  ).size;
+  const monthlyOrders = groupAcceptedQuotesByMonth(acceptedQuotes);
 
   return (
     <main>
       <PageHeader
-        title={`Accueil de ${profile.full_name}`}
+        title={`Dashboard de ${profile.full_name}`}
         description={
-          canFilterCommercials
-            ? "Vue equipe pour suivre les actions du jour et les indicateurs d'activite."
-            : "Vue personnelle pour suivre vos actions du jour et vos indicateurs d'activite."
+          isAdmin
+            ? "Suivi des resultats commerciaux et indicateurs de direction."
+            : "Vos resultats commerciaux sur la periode selectionnee."
         }
       />
 
+      <FollowUpsSection
+        followUpPeriod={followUpPeriod}
+        setFollowUpPeriod={setFollowUpPeriod}
+        visibleFollowUps={visibleFollowUps}
+      />
+
       <section className="mb-6 grid gap-3 rounded-lg border border-border bg-surface p-4 shadow-soft md:grid-cols-2">
-        {canFilterCommercials ? (
+        {isAdmin ? (
           <label className="block text-sm font-medium">
             Commercial
             <select
-              className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-              onChange={(event) => setCommercial(event.target.value)}
-              value={commercial}
+              className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+              onChange={(event) => setCommercialId(event.target.value)}
+              value={commercialId}
             >
-              <option value="">Tous les commerciaux</option>
-              {commercials.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
+              <option value="">Total equipe</option>
+              {commercials.map((commercial) => (
+                <option key={commercial.id} value={commercial.id}>{commercial.name}</option>
               ))}
             </select>
           </label>
@@ -160,378 +206,199 @@ export function DashboardScreen({
             <p className="mt-1 text-muted">{profile.full_name}</p>
           </div>
         )}
-
         <label className="block text-sm font-medium">
           Periode
           <select
-            className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+            className="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
             onChange={(event) => setPeriod(event.target.value as typeof period)}
             value={period}
           >
             {periodOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
         </label>
       </section>
 
-      <section className="mb-6 rounded-lg border border-border bg-surface p-5 shadow-soft">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Actions a realiser aujourd'hui</h2>
-          <StatusPill tone={visibleFollowUps.length ? "warning" : "success"}>
-            {visibleFollowUps.length}
-          </StatusPill>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {followUpPeriodOptions.map((option) => (
-            <button
-              className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                followUpPeriod === option.value
-                  ? "border-primary bg-primary text-white"
-                  : "border-border bg-white text-muted hover:bg-background hover:text-foreground"
-              }`}
-              key={option.value}
-              onClick={() => setFollowUpPeriod(option.value)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {visibleFollowUps.length ? (
-            visibleFollowUps.map((followUp) => (
-              <article
-                className="flex items-center justify-between gap-3 rounded-md border border-border p-4"
-                key={followUp.id}
-              >
-                <div>
-                  <h3 className="text-sm font-semibold">{followUp.company}</h3>
-                  <p className="mt-1 text-xs text-muted">
-                    {followUp.commercial} - {formatDate(followUp.dueAt)}
-                  </p>
-                  {followUp.status === "en_retard" ? (
-                    <div className="mt-2">
-                      <StatusPill tone="warning">En retard</StatusPill>
-                    </div>
-                  ) : null}
+      <h2 className="mb-3 text-base font-semibold">
+        {isAdmin ? "Suivi des commerciaux" : "Mes indicateurs"}
+      </h2>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard icon={CalendarCheck} label="Nombre de visites" value={`${periodVisits.length}`} detail="Visites terrain realisees" />
+        <StatCard icon={Users} label="Nouveaux prospects" value={`${periodProspects.length}`} detail="Prospects crees" />
+        <StatCard icon={FileText} label="Nombre de devis" value={`${periodQuotes.length}`} detail="Devis issus de l'import" />
+        <StatCard icon={BadgeEuro} label="Montant des devis" value={formatCurrency(quoteAmount)} detail="Total HT net des devis" />
+        <StatCard
+          icon={TrendingUp}
+          label="Marge / devis"
+          value={formatCurrency(quoteMargin)}
+          detail={quoteMargins.length ? `Moyenne ${formatCurrency(quoteMargin / quoteMargins.length)} sur ${quoteMargins.length} devis` : "Debourse non renseigne"}
+        />
+        <StatCard icon={RefreshCw} label="Relances effectuees" value={`${periodCompletedActions.length}`} detail="Actions de suivi finalisees" />
+      </section>
+
+      {isAdmin ? (
+        <>
+          <CommercialTable metrics={displayedCommercialMetrics} />
+
+          <h2 className="mb-3 mt-8 text-base font-semibold">Tableau de bord administrateur</h2>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard icon={ShoppingCart} label="Commandes HT" value={formatCurrency(acceptedQuoteAmount)} detail="Devis acceptes sur la periode" />
+            <StatCard icon={Wallet} label="Marge brute" value={formatCurrency(acceptedMargin)} detail="Marge des devis acceptes" />
+            <StatCard icon={Percent} label="Taux de transformation" value={formatRate(transformationRate)} detail="Devis acceptes / devis" />
+            <StatCard icon={UserPlus} label="Nouveaux clients" value={`${newClients}`} detail="Clients ayant accepte un devis" />
+            <StatCard icon={Activity} label="Clients actifs sur 3 mois" value={`${activeClients}`} detail="Avec demande de devis ou commande" />
+          </section>
+
+          <section className="mt-6 rounded-lg border border-border bg-surface p-5 shadow-soft">
+            <h2 className="text-base font-semibold">Commandes HT / mois</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {monthlyOrders.length ? monthlyOrders.map((item) => (
+                <div className="rounded-md border border-border p-4" key={item.month}>
+                  <p className="text-sm text-muted">{formatMonth(item.month)}</p>
+                  <p className="mt-1 text-lg font-semibold">{formatCurrency(item.amount)}</p>
+                  <p className="mt-1 text-xs text-muted">Marge {formatCurrency(item.margin)}</p>
                 </div>
-                <a
-                  className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white"
-                  href={buildFollowUpHref(followUp)}
-                >
-                  <PhoneCall size={16} />
-                  Traiter
-                </a>
-              </article>
-            ))
-          ) : (
-            <p className="text-sm text-muted">Aucune action a realiser sur cette periode.</p>
-          )}
-        </div>
-      </section>
-
-      <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={CalendarCheck}
-          label="Nombre de visites"
-          value={`${filtered.visits.length}`}
-          detail="Actions et comptes-rendus saisis sur la periode"
-        />
-        <StatCard
-          icon={Users}
-          label="Nouveaux prospects"
-          value={`${filtered.prospects.length}`}
-          detail="Prospects crees sur la periode"
-        />
-        <StatCard
-          icon={PhoneCall}
-          label="Relances semaine"
-          value={`${completedFollowUpsThisWeek.length}`}
-          detail="Appels, emails et devis realises cette semaine"
-        />
-        <StatCard
-          icon={ListTodo}
-          label="Relances mois"
-          value={`${completedFollowUpsThisMonth.length}`}
-          detail="Appels, emails et devis realises ce mois"
-        />
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard icon={ListTodo} label="Actions a realiser" value={`${filtered.followUps.length}`} detail="Actions ouvertes" />
-        <StatCard icon={AlertTriangle} label="Actions en retard" value={`${overdueFollowUps.length}`} detail="Echeance depassee" />
-        <StatCard icon={Target} label="Opportunites detectees" value={`${detectedOpportunities.length}`} detail="Opportunites creees ou importees" />
-        <StatCard icon={Flame} label="Prospects chauds" value={`${hotProspects.length}`} detail="Niveau d'interet 4 ou 5" />
-        <StatCard icon={Target} label="Score priorite moyen" value={`${averagePriorityScore}/100`} detail="Moyenne des prospects filtres" />
-      </section>
-
-      <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
-        <StatCard icon={Wallet} label="CA potentiel total" value={formatCurrency(potentialTotal)} detail="Somme des potentiels prospects" />
-        <StatCard icon={TrendingUp} label="Taux devis envoye" value={formatRate(rateForStage(filtered.prospects, "envoye"))} detail="Prospects arrives a cette etape" />
-      </section>
-
-      <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-          <h2 className="text-base font-semibold">CA potentiel par segment</h2>
-          <div className="mt-5 space-y-4">
-            {hasSegmentPotential ? (
-              potentialBySegment.map((item) => (
-                <div key={item.segment}>
-                  <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium">{segmentLabels[item.segment]}</span>
-                    <span className="text-muted">{formatCurrency(item.value)}</span>
-                  </div>
-                  <div className="h-3 rounded-full bg-background">
-                    <div
-                      className="h-3 rounded-full bg-primary"
-                      style={{ width: `${Math.max((item.value / maxSegmentPotential) * 100, 4)}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted">Aucune donnee disponible.</p>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-          <h2 className="text-base font-semibold">Taux de transformation par etape</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-sm">
-              <thead className="text-xs uppercase text-muted">
-                <tr className="border-b border-border">
-                  <th className="py-3">Etape</th>
-                  <th>Prospects</th>
-                  <th>Taux</th>
-                </tr>
-              </thead>
-              <tbody>
-                {opportunityStages.map((stage) => {
-                  const count = filtered.prospects.filter(
-                    (prospect) => prospect.pipelineStage === stage
-                  ).length;
-
-                  return (
-                    <tr className="border-b border-border last:border-0" key={stage}>
-                      <td className="py-3 font-medium">{opportunityStageLabels[stage]}</td>
-                      <td>{count}</td>
-                      <td>{formatRate(filtered.prospects.length ? count / filtered.prospects.length : 0)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 rounded-lg border border-border bg-surface p-5 shadow-soft">
-        <h2 className="text-base font-semibold">Meilleures opportunites</h2>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="text-xs uppercase text-muted">
-              <tr className="border-b border-border">
-                <th className="py-3">Opportunite</th>
-                <th>Entreprise</th>
-                <th>Segment</th>
-                <th>Etape</th>
-                <th>Score</th>
-                <th className="text-right">Potentiel</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bestOpportunities.length ? (
-                bestOpportunities.map((opportunity) => (
-                  <tr className="border-b border-border last:border-0" key={opportunity.id}>
-                    <td className="py-3 font-medium">{opportunity.title}</td>
-                    <td>{opportunity.company}</td>
-                    <td>{segmentLabels[opportunity.segment]}</td>
-                    <td><StatusPill>{opportunityStageLabels[opportunity.stage]}</StatusPill></td>
-                    <td>
-                      <StatusPill tone={getPriorityTone(prospectScoreByCompany.get(opportunity.company) ?? 0)}>
-                        {prospectScoreByCompany.get(opportunity.company) ?? 0}/100
-                      </StatusPill>
-                    </td>
-                    <td className="text-right font-semibold">{formatCurrency(opportunity.value)}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="py-6 text-center text-muted" colSpan={6}>
-                    Aucune opportunite disponible.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              )) : <p className="text-sm text-muted">Aucune commande acceptee sur la periode.</p>}
+            </div>
+          </section>
+        </>
+      ) : null}
     </main>
   );
 }
 
-function buildFollowUpHref(followUp: ReportingFollowUp) {
-  const params = new URLSearchParams({
-    follow_up_id: followUp.id,
-    prospect_id: followUp.prospectId
-  });
+function FollowUpsSection({
+  followUpPeriod,
+  setFollowUpPeriod,
+  visibleFollowUps
+}: {
+  followUpPeriod: (typeof followUpPeriodOptions)[number]["value"];
+  setFollowUpPeriod: (value: (typeof followUpPeriodOptions)[number]["value"]) => void;
+  visibleFollowUps: ReportingFollowUp[];
+}) {
+  return (
+    <section className="mb-6 rounded-lg border border-border bg-surface p-5 shadow-soft">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">Actions a realiser</h2>
+        <StatusPill tone={visibleFollowUps.length ? "warning" : "success"}>{visibleFollowUps.length}</StatusPill>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {followUpPeriodOptions.map((option) => (
+          <button
+            className={`rounded-md border px-3 py-2 text-sm font-medium ${followUpPeriod === option.value ? "border-primary bg-primary text-white" : "border-border bg-white text-muted"}`}
+            key={option.value}
+            onClick={() => setFollowUpPeriod(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {visibleFollowUps.length ? visibleFollowUps.map((item) => (
+          <article className="flex items-center justify-between gap-3 rounded-md border border-border p-4" key={item.id}>
+            <div>
+              <h3 className="text-sm font-semibold">{item.company}</h3>
+              <p className="mt-1 text-xs text-muted">{item.commercial} - {formatDate(item.dueAt)}</p>
+            </div>
+            <a className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white" href={`/actions-a-realiser/${item.id}`}>
+              <PhoneCall size={16} />
+              Traiter
+            </a>
+          </article>
+        )) : <p className="text-sm text-muted">Aucune action a realiser sur cette periode.</p>}
+      </div>
+    </section>
+  );
+}
 
-  if (followUp.opportunityId) {
-    params.set("opportunite_id", followUp.opportunityId);
-  }
+function CommercialTable({ metrics }: { metrics: CommercialMetric[] }) {
+  const total = metrics.reduce<CommercialMetric>((acc, item) => ({
+    commercialId: "total",
+    commercial: "Total",
+    visits: acc.visits + item.visits,
+    prospects: acc.prospects + item.prospects,
+    quotes: acc.quotes + item.quotes,
+    quoteAmount: acc.quoteAmount + item.quoteAmount,
+    margin: acc.margin + item.margin,
+    completedFollowUps: acc.completedFollowUps + item.completedFollowUps
+  }), { commercialId: "total", commercial: "Total", visits: 0, prospects: 0, quotes: 0, quoteAmount: 0, margin: 0, completedFollowUps: 0 });
 
-  return `/visites/new?${params.toString()}`;
+  return (
+    <section className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface p-5 shadow-soft">
+      <table className="w-full min-w-[850px] text-left text-sm">
+        <thead className="text-xs uppercase text-muted"><tr className="border-b border-border"><th className="py-3">Commercial</th><th>Visites</th><th>Prospects</th><th>Devis</th><th>Montant devis</th><th>Marge</th><th>Relances</th></tr></thead>
+        <tbody>
+          {[...metrics, total].map((item) => (
+            <tr className={`border-b border-border last:border-0 ${item.commercialId === "total" ? "font-semibold" : ""}`} key={item.commercialId}>
+              <td className="py-3">{item.commercial}</td><td>{item.visits}</td><td>{item.prospects}</td><td>{item.quotes}</td><td>{formatCurrency(item.quoteAmount)}</td><td>{formatCurrency(item.margin)}</td><td>{item.completedFollowUps}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function buildCommercialMetric(
+  commercial: { id: string; name: string },
+  inPeriod: (value: string | null) => boolean,
+  completedActions: ReportingCompletedAction[],
+  opportunities: ReportingOpportunity[],
+  prospects: ReportingProspect[],
+  visits: ReportingVisit[]
+): CommercialMetric {
+  const quotes = opportunities.filter((item) => item.commercialId === commercial.id && item.isQuote && inPeriod(item.quoteDate ?? item.createdAt));
+  return {
+    commercialId: commercial.id,
+    commercial: commercial.name,
+    visits: visits.filter((item) => item.commercialId === commercial.id && item.type === "visite_terrain" && inPeriod(item.date)).length,
+    prospects: prospects.filter((item) => item.commercialId === commercial.id && inPeriod(item.createdAt)).length,
+    quotes: quotes.length,
+    quoteAmount: sum(quotes.map((item) => item.value)),
+    margin: sum(quotes.flatMap((item) => item.margin === null ? [] : [item.margin])),
+    completedFollowUps: completedActions.filter((item) => item.commercialId === commercial.id && inPeriod(item.completedAt)).length
+  };
 }
 
 function createPeriodFilter(period: string) {
-  if (period === "all") {
-    return () => true;
-  }
+  if (period === "all") return () => true;
+  const start = new Date();
+  start.setDate(start.getDate() - Number(period));
+  return (value: string | null) => Boolean(value && new Date(value) >= start);
+}
 
-  const days = Number(period);
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(end.getDate() - days);
-
-  return (value: string | null) => {
-    if (!value) {
-      return false;
-    }
-
-    const date = new Date(value);
-    return date >= start && date <= end;
-  };
+function isOpenFollowUp(item: ReportingFollowUp) {
+  return item.status !== "terminee" && item.status !== "annulee";
 }
 
 function isInFollowUpPeriod(value: string, period: "overdue" | "today" | "week" | "month") {
   const date = new Date(value);
-  const status = getFollowUpStatusFromDate(value);
-
-  if (period === "overdue") {
-    return status === "en_retard";
-  }
-
-  if (period === "today") {
-    return status === "en_cours";
-  }
-
-  const now = new Date();
-  const start = new Date(now);
+  const start = new Date();
   start.setHours(0, 0, 0, 0);
+  if (period === "overdue") return date < start;
   const end = new Date(start);
-
-  if (period === "week") {
-    end.setDate(start.getDate() + 7);
-  } else {
-    end.setMonth(start.getMonth() + 1);
-  }
-
+  if (period === "today") end.setDate(end.getDate() + 1);
+  if (period === "week") end.setDate(end.getDate() + 7);
+  if (period === "month") end.setMonth(end.getMonth() + 1);
   return date >= start && date < end;
 }
 
-function isOpenFollowUp(followUp: ReportingFollowUp) {
-  return followUp.status !== "terminee" && followUp.status !== "annulee";
-}
-
-function getFollowUpStatusFromDate(value: string) {
-  const dueKey = getDateKey(value);
-  const todayKey = getDateKey(new Date().toISOString());
-
-  if (dueKey < todayKey) return "en_retard";
-  if (dueKey === todayKey) return "en_cours";
-  return "a_faire";
-}
-
-function getDateKey(value: string) {
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
-  return local.toISOString().slice(0, 10);
-}
-
-function isCompletedFollowUpVisit(visit: ReportingVisit) {
-  return ["appel", "email", "devis"].includes(visit.type);
-}
-
-function isInCurrentWeek(value: string) {
-  const date = new Date(value);
-  const now = new Date();
-  const start = getStartOfLocalDay(now);
-  const day = start.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  start.setDate(start.getDate() + mondayOffset);
-
-  const end = new Date(start);
-  end.setDate(start.getDate() + 7);
-
-  return date >= start && date < end;
-}
-
-function isInCurrentMonth(value: string) {
-  const date = new Date(value);
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-  return date >= start && date < end;
-}
-
-function getStartOfLocalDay(value: Date) {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function getPotentialBySegment(items: ReportingProspect[]) {
-  return (Object.keys(segmentLabels) as SegmentCode[]).map((segment) => ({
-    segment,
-    value: items
-      .filter((prospect) => prospect.segment === segment)
-      .reduce((sum, prospect) => sum + prospect.estimatedPotential, 0)
-  }));
-}
-
-function getProspectScore(prospect: ReportingProspect) {
-  return calculatePriorityScore({
-    interestLevel: prospect.interest,
-    estimatedBudget: prospect.estimatedPotential,
-    projectTimeline: prospect.projectTimeline,
-    capacityFit: prospect.capacityFit,
-    recurrencePotential: prospect.recurrencePotential,
-    needMaturity: prospect.needMaturity
+function groupAcceptedQuotesByMonth(items: ReportingOpportunity[]) {
+  const months = new Map<string, { amount: number; margin: number }>();
+  items.forEach((item) => {
+    const month = (item.wonAt ?? item.updatedAt).slice(0, 7);
+    const current = months.get(month) ?? { amount: 0, margin: 0 };
+    current.amount += item.value;
+    current.margin += item.margin ?? 0;
+    months.set(month, current);
   });
+  return Array.from(months, ([month, values]) => ({ month, ...values })).sort((a, b) => b.month.localeCompare(a.month));
 }
 
-function rateForStage(items: ReportingProspect[], stage: OpportunityStage) {
-  if (items.length === 0) {
-    return 0;
-  }
-
-  return items.filter((prospect) => prospect.pipelineStage === stage).length / items.length;
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("fr-FR", {
-    currency: "EUR",
-    maximumFractionDigits: 0,
-    style: "currency"
-  }).format(value);
-}
-
-function formatRate(value: number) {
-  return new Intl.NumberFormat("fr-FR", {
-    maximumFractionDigits: 0,
-    style: "percent"
-  }).format(value);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  }).format(new Date(value));
-}
+function sum(values: number[]) { return values.reduce((total, value) => total + value, 0); }
+function formatCurrency(value: number) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value); }
+function formatRate(value: number) { return new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 1 }).format(value); }
+function formatDate(value: string) { return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value)); }
+function formatMonth(value: string) { const [year, month] = value.split("-"); return new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(Number(year), Number(month) - 1, 1)); }
