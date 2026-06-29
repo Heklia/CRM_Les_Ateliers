@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Save } from "lucide-react";
+import { Plus, Save, Trash2 } from "lucide-react";
 import { createProspect } from "@/app/prospects/new/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -13,6 +14,7 @@ const initialState: { error?: string } = {
 
 export function NewProspectForm() {
   const [state, formAction] = useFormState(createProspect, initialState);
+  const [contactIds, setContactIds] = useState([0]);
 
   return (
     <form
@@ -53,7 +55,7 @@ export function NewProspectForm() {
       </div>
 
       <Field
-        label="Sous-segment"
+        label="Precision sur l'activite"
         name="sub_segment"
         placeholder="Architecte, paysagiste, cuisiniste, industriel..."
       />
@@ -62,27 +64,82 @@ export function NewProspectForm() {
       <Field label="Ville" name="city" placeholder="Ville" />
       <Field label="Code postal" name="postal_code" placeholder="44000" />
       <Field label="Site web" name="website" placeholder="www.entreprise.fr" />
-      <Field
-        label="Nom du contact"
-        name="contact_name"
-        placeholder="Prenom Nom"
-        required
-      />
-      <Field
-        label="Fonction du contact"
-        name="contact_job_title"
-        placeholder="Dirigeant, responsable bureau d'etudes..."
-      />
-      <Field label="Telephone" name="phone" placeholder="+33..." />
-      <Field
-        label="Email"
-        name="email"
-        type="email"
-        placeholder="contact@entreprise.fr"
-      />
+      <div className="space-y-4 lg:col-span-2">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Contacts</h2>
+          <Button
+            onClick={() =>
+              setContactIds((current) => [...current, Math.max(...current) + 1])
+            }
+            type="button"
+            variant="secondary"
+          >
+            <Plus size={16} />
+            Ajouter un contact
+          </Button>
+        </div>
+
+        {contactIds.map((contactId, index) => (
+          <fieldset
+            className="grid gap-4 rounded-md border border-border p-4 lg:grid-cols-2"
+            key={contactId}
+          >
+            <div className="flex items-center justify-between gap-3 lg:col-span-2">
+              <legend className="text-sm font-semibold">Contact {index + 1}</legend>
+              {contactIds.length > 1 ? (
+                <button
+                  aria-label={`Supprimer le contact ${index + 1}`}
+                  className="inline-flex size-10 items-center justify-center rounded-md border border-border text-red-700"
+                  onClick={() =>
+                    setContactIds((current) => current.filter((id) => id !== contactId))
+                  }
+                  type="button"
+                >
+                  <Trash2 size={16} />
+                </button>
+              ) : null}
+            </div>
+            <Field
+              id={`contact_name_${contactId}`}
+              label="Nom du contact"
+              name="contact_name"
+              placeholder="Prenom Nom"
+              required
+            />
+            <Field
+              id={`contact_job_title_${contactId}`}
+              label="Fonction du contact"
+              name="contact_job_title"
+              placeholder="Dirigeant, responsable bureau d'etudes..."
+            />
+            <Field
+              id={`phone_${contactId}`}
+              label="Telephone"
+              name="phone"
+              placeholder="+33..."
+            />
+            <Field
+              id={`email_${contactId}`}
+              label="Email"
+              name="email"
+              placeholder="contact@entreprise.fr"
+              type="email"
+            />
+            <div className="lg:col-span-2">
+              <Field
+                id={`contact_notes_${contactId}`}
+                label="Commentaire du contact"
+                name="contact_notes"
+                placeholder="Preferences de contact, contexte, informations utiles..."
+                textarea
+              />
+            </div>
+          </fieldset>
+        ))}
+      </div>
       <div className="lg:col-span-2">
         <Field
-          label="Commentaire libre"
+          label="Commentaire libre sur le prospect"
           name="notes"
           placeholder="Contexte, besoin pressenti, informations terrain..."
           textarea

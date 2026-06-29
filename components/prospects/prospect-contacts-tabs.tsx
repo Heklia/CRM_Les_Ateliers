@@ -13,6 +13,7 @@ type ContactItem = {
   jobTitle: string | null;
   phone: string | null;
   email: string | null;
+  notes: string | null;
 };
 
 const initialState: { error?: string } = {};
@@ -86,6 +87,7 @@ export function ProspectContactsTabs({
             <InfoRow label="Fonction du contact" value={activeContact.jobTitle ?? "Non renseignee"} />
             <InfoRow label="Telephone" value={activeContact.phone ?? "Non renseigne"} />
             <InfoRow label="Email" value={activeContact.email ?? "Non renseigne"} />
+            <InfoRow label="Commentaire" value={activeContact.notes ?? "Aucun commentaire"} />
           </dl>
         ) : (
           <p className="text-sm text-muted">Aucun contact renseigne.</p>
@@ -114,6 +116,9 @@ function NewContactForm({ prospectId }: { prospectId: string }) {
       <Field label="Fonction du contact" name="contact_job_title" />
       <Field label="Telephone" name="phone" />
       <Field label="Email" name="email" type="email" />
+      <div className="lg:col-span-2">
+        <Field label="Commentaire du contact" name="contact_notes" textarea />
+      </div>
 
       <div className="flex justify-end lg:col-span-2">
         <SubmitButton />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { CalendarPlus, Pencil } from "lucide-react";
+import { CalendarPlus, Eye, Pencil } from "lucide-react";
 import { deleteProspect } from "@/app/prospects/[id]/actions";
 import { ResourceAssignmentsForm } from "@/components/admin/resource-assignments-form";
 import { ProspectContactsTabs } from "@/components/prospects/prospect-contacts-tabs";
@@ -22,6 +22,7 @@ type ProspectRow = {
   commercial_id: string;
   segment_id: string;
   company_name: string;
+  sub_segment: string | null;
   city: string | null;
   status: string;
   category: string;
@@ -34,6 +35,10 @@ type SegmentRow = {
   code: string;
 };
 
+type ProspectSegmentRow = {
+  segment_id: string;
+};
+
 type ContactRow = {
   id: string;
   first_name: string | null;
@@ -41,6 +46,7 @@ type ContactRow = {
   job_title: string | null;
   phone: string | null;
   email: string | null;
+  notes: string | null;
 };
 
 type VisitRow = {
@@ -52,6 +58,7 @@ type VisitRow = {
 
 type ActionEventRow = {
   id: string;
+  action_thread_id: string;
   completed_at: string;
   action_type: string;
   result: string | null;
@@ -105,6 +112,7 @@ export default async function ProspectDetailPage({
   const [
     prospectResult,
     { data: segments },
+    { data: prospectSegments },
     { data: contacts },
     { data: visits },
     actionEventsResult,
@@ -117,8 +125,12 @@ export default async function ProspectDetailPage({
       fetchProspect(supabase, params.id),
       supabase.from("segments").select("id, code"),
       supabase
+        .from("prospect_segments")
+        .select("segment_id")
+        .eq("prospect_id", params.id),
+      supabase
         .from("contacts")
-        .select("id, first_name, last_name, job_title, phone, email, is_primary")
+        .select("id, first_name, last_name, job_title, phone, email, notes, is_primary")
         .eq("prospect_id", params.id)
         .order("is_primary", { ascending: false }),
       supabase
@@ -155,6 +167,7 @@ export default async function ProspectDetailPage({
 
   const prospectRow = prospect as ProspectRow;
   const segmentRows = (segments ?? []) as SegmentRow[];
+  const prospectSegmentRows = (prospectSegments ?? []) as ProspectSegmentRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const visitRows = (visits ?? []) as VisitRow[];
   const actionEventRows = actionEventsResult.data;
@@ -164,16 +177,22 @@ export default async function ProspectDetailPage({
   const assignmentRows = (assignments ?? []) as ProspectAssignmentRow[];
   const segment = segmentRows.find((item) => item.id === prospectRow.segment_id);
   const segmentCode = (segment?.code ?? "autres_agencements") as SegmentCode;
+  const prospectSegmentCodes = prospectSegmentRows
+    .map((item) => segmentRows.find((segmentItem) => segmentItem.id === item.segment_id)?.code)
+    .filter((code): code is SegmentCode => Boolean(code));
+  const displayedSegmentCodes = prospectSegmentCodes.length
+    ? prospectSegmentCodes
+    : [segmentCode];
   const contactItems = contactRows.map((contact) => ({
     id: contact.id,
     name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Contact non renseigne",
     jobTitle: contact.job_title,
     phone: contact.phone,
-    email: contact.email
+    email: contact.email,
+    notes: contact.notes
   }));
   const opportunityItems = opportunityRows.map((opportunity) => ({
     id: opportunity.id,
-    prospectId: opportunity.prospect_id,
     title: opportunity.title,
     description: opportunity.description,
     stage: toOpportunityStage(opportunity.stage),
@@ -215,7 +234,8 @@ export default async function ProspectDetailPage({
       type: visit.type,
       title: getActionLabel(visit.type),
       detail: visit.resume,
-      source: "Compte-rendu"
+      source: "Compte-rendu",
+      href: `/visites/${visit.id}/edit`
     })),
     ...actionEventRows.map((event) => ({
       id: `event-${event.id}`,
@@ -223,7 +243,8 @@ export default async function ProspectDetailPage({
       type: event.action_type,
       title: getActionLabel(event.action_type),
       detail: [event.result, event.report].filter(Boolean).join(" - ") || "Action finalisee",
-      source: "Action partagee"
+      source: "Action partagee",
+      href: `/actions-a-realiser/${event.action_thread_id}`
     }))
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -292,6 +313,14 @@ export default async function ProspectDetailPage({
               label="Interet"
               value={prospectRow.interest_level ? `${prospectRow.interest_level}/5` : "Non renseigne"}
             />
+            <InfoRow
+              label="Segments"
+              value={displayedSegmentCodes.map((code) => segmentLabels[code]).join(", ")}
+            />
+            <InfoRow
+              label="Precision sur l'activite"
+              value={prospectRow.sub_segment ?? "Non renseignee"}
+            />
             <InfoRow label="Commentaire" value={prospectRow.notes ?? "Aucun commentaire"} />
           </dl>
         </div>
@@ -307,10 +336,7 @@ export default async function ProspectDetailPage({
 
         <ProspectContactsTabs contacts={contactItems} prospectId={prospectRow.id} />
 
-        <ProspectOpportunitiesPanel
-          opportunities={opportunityItems}
-          prospectId={prospectRow.id}
-        />
+        <ProspectOpportunitiesPanel opportunities={opportunityItems} />
 
         <ProspectImagesPanel
           canModify={canModifyData(profile)}
@@ -337,7 +363,17 @@ export default async function ProspectDetailPage({
                       <p className="font-medium">{item.title}</p>
                       <p className="mt-1 text-xs text-muted">{item.source}</p>
                     </div>
-                    <span className="text-sm text-muted">{formatDate(item.date)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted">{formatDate(item.date)}</span>
+                      <Link
+                        aria-label={`Consulter ${item.title}`}
+                        className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-white"
+                        href={item.href}
+                        title="Consulter l'action"
+                      >
+                        <Eye size={16} />
+                      </Link>
+                    </div>
                   </div>
                   <p className="mt-2 text-sm text-muted">{item.detail}</p>
                 </article>
@@ -385,9 +421,9 @@ function getActionLabel(value: string) {
 async function fetchProspect(supabase: ReturnType<typeof createClient>, prospectId: string) {
   const prospectsTable = supabase.from("prospects") as any;
   const selectWithCategory =
-    "id, commercial_id, segment_id, company_name, city, status, category, interest_level, notes";
+    "id, commercial_id, segment_id, company_name, sub_segment, city, status, category, interest_level, notes";
   const selectWithoutCategory =
-    "id, commercial_id, segment_id, company_name, city, status, interest_level, notes";
+    "id, commercial_id, segment_id, company_name, sub_segment, city, status, interest_level, notes";
 
   const result = await prospectsTable
     .select(selectWithCategory)
@@ -438,7 +474,7 @@ async function fetchProspectActionEvents(
 
   const eventsResult = await client
     .from("commercial_action_events")
-    .select("id, completed_at, action_type, result, report")
+    .select("id, action_thread_id, completed_at, action_type, result, report")
     .in("action_thread_id", threadIds)
     .order("completed_at", { ascending: false });
 

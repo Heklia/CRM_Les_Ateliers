@@ -78,7 +78,7 @@ export function EditProspectForm({ prospect, contact }: EditProspectFormProps) {
 
       <Field
         defaultValue={prospect.subSegment ?? ""}
-        label="Sous-segment"
+        label="Precision sur l'activite"
         name="sub_segment"
       />
       <Field defaultValue={prospect.address ?? ""} label="Adresse" name="address" />

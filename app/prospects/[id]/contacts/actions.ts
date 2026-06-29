@@ -49,6 +49,7 @@ export async function createProspectContact(
     job_title: optionalText(formData, "contact_job_title"),
     phone: optionalText(formData, "phone"),
     email: email.data,
+    notes: optionalText(formData, "contact_notes"),
     is_primary: false
   });
 

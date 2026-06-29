@@ -35,7 +35,7 @@ function InputControl({
   className: string;
 }) {
   const { label: _label, textarea: _textarea, ...inputProps } = props;
-  return <input {...inputProps} className={className} id={props.name} />;
+  return <input {...inputProps} className={className} id={props.id ?? props.name} />;
 }
 
 function TextareaControl({
@@ -50,7 +50,7 @@ function TextareaControl({
     <textarea
       {...textareaProps}
       className={className}
-      id={props.name}
+      id={props.id ?? props.name}
       rows={props.rows ?? 4}
     />
   );

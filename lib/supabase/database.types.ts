@@ -332,6 +332,13 @@ export type Database = {
         };
         Returns: string;
       };
+      create_prospect_with_contacts: {
+        Args: {
+          prospect_payload: Json;
+          contacts_payload: Json;
+        };
+        Returns: string;
+      };
       complete_commercial_action_thread: {
         Args: {
           target_thread_id: string;

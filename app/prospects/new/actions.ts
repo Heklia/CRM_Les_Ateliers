@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import {
   normalizeOptionalWebsite,
-  optionalEmail,
   optionalText,
   requiredText
 } from "@/lib/forms/validation";
@@ -37,20 +36,16 @@ export async function createProspect(
 
   const companyName = requiredText(formData, "company_name", "Nom entreprise");
   const selectedSegmentCodes = getSelectedSegmentCodes(formData);
-  const contactName = requiredText(formData, "contact_name", "Nom du contact");
+  const contacts = getContacts(formData);
   const website = normalizeOptionalWebsite(formData, "website");
-  const email = optionalEmail(formData, "email", "Email");
 
   if (!companyName.ok) return { error: companyName.error };
   if (!selectedSegmentCodes.length) return { error: "Selectionnez au moins un segment marche." };
-  if (!contactName.ok) return { error: contactName.error };
+  if (!contacts.ok) return { error: contacts.error };
   if (!website.ok) return { error: website.error };
-  if (!email.ok) return { error: email.error };
 
   const validatedCompanyName = companyName.data;
-  const validatedContactName = contactName.data;
   const validatedWebsite = website.data;
-  const validatedEmail = email.data;
   const postalCode = optionalText(formData, "postal_code");
 
   const profile = await ensureCommercialProfile(user);
@@ -66,14 +61,13 @@ export async function createProspect(
   }
 
   const primarySegment = selectedSegmentsResult.segments[0];
-  const { firstName, lastName } = splitContactName(validatedContactName);
   const duplicateProspect = await findDuplicateProspect(supabase, validatedCompanyName, postalCode);
 
   if (duplicateProspect) {
     return { error: duplicateProspectMessage };
   }
 
-  const { data: createdProspectId, error: createError } = await supabase.rpc("create_prospect_with_contact", {
+  const { data: createdProspectId, error: createError } = await supabase.rpc("create_prospect_with_contacts", {
     prospect_payload: {
       commercial_id: user.id,
       segment_id: primarySegment.id,
@@ -92,15 +86,10 @@ export async function createProspect(
       source: "terrain",
       status: "nouveau"
     },
-    contact_payload: {
+    contacts_payload: contacts.data.map((contact) => ({
       commercial_id: user.id,
-      first_name: firstName,
-      last_name: lastName,
-      job_title: optionalText(formData, "contact_job_title"),
-      phone: optionalText(formData, "phone"),
-      email: validatedEmail,
-      is_primary: true
-    }
+      ...contact
+    }))
   });
 
   if (createError) {
@@ -108,7 +97,11 @@ export async function createProspect(
       return { error: duplicateProspectMessage };
     }
 
-    return { error: "Impossible de creer le prospect et son contact." };
+    if (createError.message?.includes("create_prospect_with_contacts")) {
+      return { error: "La migration Supabase 023_multi_contact_creation.sql doit etre appliquee." };
+    }
+
+    return { error: "Impossible de creer le prospect et ses contacts." };
   }
 
   if (createdProspectId) {
@@ -159,6 +152,51 @@ function getSelectedSegmentCodes(formData: FormData) {
     .getAll("segment_codes")
     .map((value) => String(value))
     .filter((value): value is SegmentCode => segmentCodes.includes(value as SegmentCode));
+}
+
+function getContacts(formData: FormData) {
+  const names = formData.getAll("contact_name").map((value) => String(value).trim());
+  const jobTitles = formData.getAll("contact_job_title").map((value) => optionalValue(value));
+  const phones = formData.getAll("phone").map((value) => optionalValue(value));
+  const emails = formData.getAll("email").map((value) => optionalValue(value));
+  const notes = formData.getAll("contact_notes").map((value) => optionalValue(value));
+
+  if (!names.length) {
+    return { ok: false as const, error: "Ajoutez au moins un contact." };
+  }
+
+  const contacts = [];
+
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index];
+    const email = emails[index] ?? null;
+
+    if (!name) {
+      return { ok: false as const, error: `Le nom du contact ${index + 1} est obligatoire.` };
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { ok: false as const, error: `L'email du contact ${index + 1} est invalide.` };
+    }
+
+    const { firstName, lastName } = splitContactName(name);
+    contacts.push({
+      first_name: firstName,
+      last_name: lastName,
+      job_title: jobTitles[index] ?? null,
+      phone: phones[index] ?? null,
+      email,
+      notes: notes[index] ?? null,
+      is_primary: index === 0
+    });
+  }
+
+  return { ok: true as const, data: contacts };
+}
+
+function optionalValue(value: FormDataEntryValue | undefined) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
 }
 
 async function ensureCommercialProfile(user: {
