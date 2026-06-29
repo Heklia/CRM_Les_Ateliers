@@ -1,37 +1,43 @@
 import Link from "next/link";
-import { BarChart3, ClipboardList, ListTodo, PlusCircle, Users } from "lucide-react";
+import { BarChart3, ClipboardList, KanbanSquare, ListTodo, Settings, Users } from "lucide-react";
+import { getCurrentProfile } from "@/lib/auth/roles";
+import { createClient } from "@/lib/supabase/server";
 
 const mobileItems = [
-  { href: "/dashboard", label: "Accueil", icon: BarChart3 },
+  { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/actions-a-realiser", label: "A faire", icon: ListTodo },
-  { href: "/prospects", label: "Prospects", icon: Users },
-  { href: "/visites/new", label: "Action", icon: PlusCircle, primary: true },
-  { href: "/visites", label: "Actions", icon: ClipboardList }
+  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+  { href: "/prospects", label: "Prospect", icon: Users },
+  { href: "/visites", label: "Actions", icon: ClipboardList },
+  { href: "/admin", label: "Admin", icon: Settings, adminOnly: true }
 ];
 
-export function MobileBottomNav() {
+export async function MobileBottomNav() {
+  const profile = await getCurrentProfile(createClient() as any);
+  const visibleItems = mobileItems.filter(
+    (item) => !item.adminOnly || profile?.role === "admin"
+  );
+
   return (
-    <nav className="mobile-bottom-nav border-t border-border bg-surface/95 px-1 pt-1 shadow-soft backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-0.5">
-        {mobileItems.map((item) => {
+    <nav className="mobile-bottom-nav overflow-x-auto border-t border-border bg-surface/95 px-1 pt-1 shadow-soft backdrop-blur">
+      <div
+        className={`mx-auto grid min-w-[340px] max-w-lg gap-0.5 ${
+          visibleItems.length === 6 ? "grid-cols-6" : "grid-cols-5"
+        }`}
+      >
+        {visibleItems.map((item) => {
           const Icon = item.icon;
 
           return (
             <Link
-              className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-[11px] font-medium leading-none text-muted"
+              className="flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-0.5 text-[10px] font-medium leading-none text-muted"
               href={item.href}
               key={item.href}
             >
-              <span
-                className={
-                  item.primary
-                    ? "flex size-9 items-center justify-center rounded-full bg-primary text-white"
-                    : "flex size-6 items-center justify-center"
-                }
-              >
-                <Icon size={item.primary ? 20 : 17} />
+              <span className="flex size-6 items-center justify-center">
+                <Icon size={17} />
               </span>
-              <span>{item.label}</span>
+              <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );
         })}

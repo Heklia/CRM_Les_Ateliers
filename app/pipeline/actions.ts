@@ -43,6 +43,10 @@ export async function updatePipelineStage({
     return { ok: false, error: "Utilisateur non connecte." };
   }
 
+  if (profile.role !== "admin") {
+    return { ok: false, error: "Le pipeline est en lecture seule pour votre profil." };
+  }
+
   if (type === "prospect") {
     const prospectsTable = supabase.from("prospects") as any;
     const { data, error: findError } = await prospectsTable

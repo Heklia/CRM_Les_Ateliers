@@ -20,7 +20,13 @@ export type PipelineCard = {
   expectedCloseDate: string | null;
 };
 
-export function PipelineKanban({ initialCards }: { initialCards: PipelineCard[] }) {
+export function PipelineKanban({
+  canEdit,
+  initialCards
+}: {
+  canEdit: boolean;
+  initialCards: PipelineCard[];
+}) {
   const [cards, setCards] = useState(initialCards);
   const [draggedCard, setDraggedCard] = useState<PipelineCard | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +52,7 @@ export function PipelineKanban({ initialCards }: { initialCards: PipelineCard[] 
   }, [cards]);
 
   function moveCard(targetStage: OpportunityStage) {
-    if (!draggedCard || draggedCard.stage === targetStage) {
+    if (!canEdit || !draggedCard || draggedCard.stage === targetStage) {
       return;
     }
 
@@ -77,7 +83,10 @@ export function PipelineKanban({ initialCards }: { initialCards: PipelineCard[] 
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3 text-sm text-muted">
-        <span>{cards.length} carte(s) dans le pipeline</span>
+        <span>
+          {cards.length} carte(s) dans le pipeline
+          {!canEdit ? " - Lecture seule" : ""}
+        </span>
         <div className="flex items-center gap-2">
           {isPending ? <span>Mise a jour...</span> : null}
           <Button onClick={() => exportPipeline(cards)} type="button" variant="secondary">
@@ -122,8 +131,8 @@ export function PipelineKanban({ initialCards }: { initialCards: PipelineCard[] 
             <section
               className="min-h-80 rounded-lg border border-border bg-surface p-3 shadow-soft"
               key={stage}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={() => moveCard(stage)}
+              onDragOver={canEdit ? (event) => event.preventDefault() : undefined}
+              onDrop={canEdit ? () => moveCard(stage) : undefined}
             >
               <div className="mb-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
@@ -138,8 +147,8 @@ export function PipelineKanban({ initialCards }: { initialCards: PipelineCard[] 
               <div className="space-y-3">
                 {stageCards.map((card) => (
                   <article
-                    className="cursor-grab rounded-md border border-border bg-white p-3 shadow-sm active:cursor-grabbing"
-                    draggable
+                    className={`${canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-default"} rounded-md border border-border bg-white p-3 shadow-sm`}
+                    draggable={canEdit}
                     key={`${card.type}-${card.id}`}
                     onDragEnd={() => setDraggedCard(null)}
                     onDragStart={() => setDraggedCard(card)}
@@ -149,7 +158,7 @@ export function PipelineKanban({ initialCards }: { initialCards: PipelineCard[] 
                         <h3 className="text-sm font-semibold">{card.prospectName}</h3>
                         <p className="mt-1 text-xs text-muted">{card.title}</p>
                       </div>
-                      <GripVertical className="shrink-0 text-muted" size={16} />
+                      {canEdit ? <GripVertical className="shrink-0 text-muted" size={16} /> : null}
                     </div>
 
                     <div className="mt-3 flex items-center justify-between gap-2 text-xs">

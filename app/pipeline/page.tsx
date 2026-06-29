@@ -40,10 +40,6 @@ export default async function PipelinePage() {
     redirect("/login");
   }
 
-  if (profile.role !== "admin") {
-    redirect("/dashboard");
-  }
-
   const prospectsQuery = supabase
     .from("prospects")
     .select("id, company_name, city, pipeline_stage, estimated_potential, interest_level, priority_score, project_timeline, capacity_fit, recurrence_potential, need_maturity")
@@ -83,17 +79,19 @@ export default async function PipelinePage() {
         description="Vue Kanban dediee aux opportunites, avec potentiel mensuel et export."
       />
 
-      <div className="mb-4">
-        <Link
-          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-4 text-sm font-semibold hover:bg-background"
-          href="/pipeline/import"
-        >
-          <Upload size={16} />
-          Importer des devis
-        </Link>
-      </div>
+      {profile.role === "admin" ? (
+        <div className="mb-4">
+          <Link
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-4 text-sm font-semibold hover:bg-background"
+            href="/pipeline/import"
+          >
+            <Upload size={16} />
+            Importer des devis
+          </Link>
+        </div>
+      ) : null}
 
-      <PipelineKanban initialCards={cards} />
+      <PipelineKanban canEdit={profile.role === "admin"} initialCards={cards} />
     </main>
   );
 }
