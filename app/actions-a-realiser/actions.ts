@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/roles";
-import { optionalDateTime, optionalText, requiredDateTime, requiredEnum, requiredText } from "@/lib/forms/validation";
+import { optionalText, requiredDateTime, requiredEnum, requiredText } from "@/lib/forms/validation";
 import { createClient } from "@/lib/supabase/server";
 
 const actionTypes = ["appel", "email", "visite_terrain", "salon", "devis", "autre"] as const;
@@ -131,86 +131,6 @@ export async function completeCommercialActionThread(
 
   revalidateCommercialActions(threadId.data);
   return { success: "Action realisee et fiche mise a jour." };
-}
-
-export async function updateCurrentCommercialAction(
-  _previousState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
-  const supabase = createClient() as any;
-  const profile = await getCurrentProfile(supabase);
-
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") return { error: "Seul un admin peut modifier une fiche action partagee." };
-
-  const threadId = requiredText(formData, "thread_id", "Fiche action");
-  const actionType = requiredEnum(formData, "current_action_type", "Action a mener", actionTypes);
-  const dueDate = requiredDateTime(formData, "current_due_date", "Date d'echeance");
-  const priority = requiredEnum(formData, "current_priority", "Priorite", priorities);
-  const prospectStatus = requiredEnum(formData, "prospect_status", "Statut prospect", commercialProspectStatuses);
-
-  if (!threadId.ok) return { error: threadId.error };
-  if (!actionType.ok) return { error: actionType.error };
-  if (!dueDate.ok) return { error: dueDate.error };
-  if (!priority.ok) return { error: priority.error };
-  if (!prospectStatus.ok) return { error: prospectStatus.error };
-
-  const { error } = await supabase
-    .from("commercial_action_threads")
-    .update({
-      current_action_type: actionType.data,
-      current_due_date: dueDate.data,
-      current_priority: priority.data,
-      prospect_status: prospectStatus.data,
-      current_comment: optionalText(formData, "current_comment")
-    })
-    .eq("id", threadId.data)
-    .eq("current_status", "active");
-
-  if (error) {
-    return { error: `Impossible de modifier la fiche action : ${error.message}` };
-  }
-
-  revalidateCommercialActions(threadId.data);
-  return { success: "Prochaine action modifiee." };
-}
-
-export async function closeCommercialActionAsLost(
-  _previousState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
-  const supabase = createClient() as any;
-  const profile = await getCurrentProfile(supabase);
-
-  if (!profile) redirect("/login");
-  if (profile.role !== "admin") return { error: "Seul un admin peut cloturer une fiche action partagee." };
-
-  const threadId = requiredText(formData, "thread_id", "Fiche action");
-  const completedAt = optionalDateTime(formData, "completed_at", "Date de cloture");
-
-  if (!threadId.ok) return { error: threadId.error };
-  if (!completedAt.ok) return { error: completedAt.error };
-
-  const closingDate = completedAt.data ?? new Date().toISOString();
-  const { error } = await supabase.rpc("complete_commercial_action_thread", {
-    target_thread_id: threadId.data,
-    completed_at_value: closingDate,
-    action_type_value: "autre",
-    result_value: "Perdu",
-    report_value: optionalText(formData, "closed_reason") ?? "Fiche cloturee comme perdue.",
-    prospect_status_after_action_value: "perdu",
-    next_action_type_value: null,
-    next_due_date_value: null,
-    priority_after_action_value: "normale",
-    comment_value: optionalText(formData, "closed_reason")
-  });
-
-  if (error) {
-    return { error: `Impossible de cloturer la fiche action : ${error.message}` };
-  }
-
-  revalidateCommercialActions(threadId.data);
-  return { success: "Fiche action cloturee comme perdue." };
 }
 
 function revalidateCommercialActions(threadId?: string) {

@@ -1,9 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { CheckCircle2, Edit3, Save, XCircle } from "lucide-react";
-import { closeCommercialActionAsLost, completeCommercialActionThread, updateCurrentCommercialAction } from "@/app/actions-a-realiser/actions";
+import { CheckCircle2, Save } from "lucide-react";
+import { completeCommercialActionThread } from "@/app/actions-a-realiser/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
@@ -12,10 +12,11 @@ import {
   commercialActionPriorityLabels,
   commercialActionThreadStatusLabels,
   commercialActionTypeLabels,
-  commercialProspectStatusLabels
+  commercialProspectStatusLabels,
+  statusLabels
 } from "@/lib/constants";
 import type { CurrentProfile } from "@/lib/auth/roles";
-import type { CommercialActionPriority, CommercialActionThreadStatus, CommercialActionType, CommercialProspectStatus } from "@/lib/types";
+import type { CommercialActionPriority, CommercialActionThreadStatus, CommercialActionType, CommercialProspectStatus, ProspectStatus } from "@/lib/types";
 
 type DetailProps = {
   contact: {
@@ -42,8 +43,14 @@ type DetailProps = {
   prospect: {
     id: string;
     companyName: string;
+    address: string | null;
+    postalCode: string | null;
     city: string | null;
     website: string | null;
+    status: string;
+    segments: string[];
+    activityDetail: string | null;
+    notes: string | null;
   };
   thread: {
     id: string;
@@ -78,11 +85,20 @@ export function CommercialActionThreadDetail({
         description="Fiche action continue avec historique du couple client/contact."
       />
 
+      <HistorySection events={events} />
+
+      <h2 className="mb-3 mt-6 text-base font-semibold">Informations globales du client</h2>
       <section className="grid gap-4 lg:grid-cols-3">
         <InfoBlock title="Client">
           <InfoRow label="Entreprise" value={prospect.companyName} />
+          <InfoRow label="Statut" value={statusLabels[prospect.status as ProspectStatus] ?? prospect.status} />
+          <InfoRow label="Adresse" value={prospect.address ?? "Non renseignee"} />
+          <InfoRow label="Code postal" value={prospect.postalCode ?? "Non renseigne"} />
           <InfoRow label="Ville" value={prospect.city ?? "Non renseignee"} />
           <InfoRow label="Site" value={prospect.website ?? "Non renseigne"} />
+          <InfoRow label="Segments" value={prospect.segments.join(", ") || "Non renseignes"} />
+          <InfoRow label="Precision sur l'activite" value={prospect.activityDetail ?? "Non renseignee"} />
+          <InfoRow label="Commentaire" value={prospect.notes ?? "Aucun commentaire"} />
         </InfoBlock>
 
         <InfoBlock title="Contact">
@@ -111,51 +127,55 @@ export function CommercialActionThreadDetail({
       </section>
 
       {canModify ? (
-        <section className="mt-6 grid gap-6 xl:grid-cols-2">
+        <section className="mt-6">
           <CompleteActionForm thread={thread} />
-          <UpdateCurrentActionForm thread={thread} />
-          <CloseLostForm threadId={thread.id} />
         </section>
       ) : null}
-
-      <section className="mt-6 rounded-lg border border-border bg-surface p-5 shadow-soft">
-        <h2 className="text-base font-semibold">Timeline historique</h2>
-        <div className="mt-5 space-y-4">
-          {events.length ? (
-            events.map((event) => (
-              <article className="rounded-md border border-border p-4" key={event.id}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">
-                      {commercialActionTypeLabels[event.actionType as CommercialActionType]} - {formatDateTime(event.completedAt)}
-                    </p>
-                    <p className="mt-1 text-sm text-muted">{event.createdBy}</p>
-                  </div>
-                  <StatusPill>
-                    {commercialProspectStatusLabels[event.prospectStatusAfterAction as CommercialProspectStatus]}
-                  </StatusPill>
-                </div>
-                {event.result ? <p className="mt-3 text-sm"><span className="font-semibold">Resultat : </span>{event.result}</p> : null}
-                {event.report ? <p className="mt-2 text-sm text-muted">{event.report}</p> : null}
-                {event.nextActionType ? (
-                  <p className="mt-2 text-xs text-muted">
-                    Prochaine action prevue a l'epoque : {commercialActionTypeLabels[event.nextActionType as CommercialActionType]}
-                    {event.nextDueDate ? ` le ${formatDateTime(event.nextDueDate)}` : ""}
-                  </p>
-                ) : null}
-              </article>
-            ))
-          ) : (
-            <p className="text-sm text-muted">Aucune action realisee pour ce couple client/contact.</p>
-          )}
-        </div>
-      </section>
     </>
+  );
+}
+
+function HistorySection({ events }: { events: DetailProps["events"] }) {
+  return (
+    <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+      <h2 className="text-base font-semibold">Recapitulatif des actions precedentes</h2>
+      <div className="mt-5 space-y-4">
+        {events.length ? (
+          events.map((event) => (
+            <article className="rounded-md border border-border p-4" key={event.id}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold">
+                    {commercialActionTypeLabels[event.actionType as CommercialActionType]} - {formatDateTime(event.completedAt)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">{event.createdBy}</p>
+                </div>
+                <StatusPill>
+                  {commercialProspectStatusLabels[event.prospectStatusAfterAction as CommercialProspectStatus]}
+                </StatusPill>
+              </div>
+              {event.result ? <p className="mt-3 text-sm"><span className="font-semibold">Resultat : </span>{event.result}</p> : null}
+              {event.report ? <p className="mt-2 text-sm"><span className="font-semibold">Commentaire : </span>{event.report}</p> : null}
+              {event.nextActionType ? (
+                <p className="mt-2 text-xs text-muted">
+                  Prochaine action prevue : {commercialActionTypeLabels[event.nextActionType as CommercialActionType]}
+                  {event.nextDueDate ? ` le ${formatDateTime(event.nextDueDate)}` : ""}
+                </p>
+              ) : null}
+            </article>
+          ))
+        ) : (
+          <p className="text-sm text-muted">Aucune action precedente pour ce client et ce contact.</p>
+        )}
+      </div>
+    </section>
   );
 }
 
 function CompleteActionForm({ thread }: { thread: DetailProps["thread"] }) {
   const [state, action] = useFormState(completeCommercialActionThread, initialState);
+  const [prospectStatus, setProspectStatus] = useState(thread.prospectStatus);
+  const closesThread = ["perdu", "commande_gagnee"].includes(prospectStatus);
 
   return (
     <form action={action} className="rounded-lg border border-border bg-surface p-5 shadow-soft" id="realiser">
@@ -169,58 +189,21 @@ function CompleteActionForm({ thread }: { thread: DetailProps["thread"] }) {
         <Field defaultValue={getCurrentDateTimeLocal()} label="Date de realisation" name="completed_at" required type="datetime-local" />
         <ActionTypeSelect defaultValue={thread.currentActionType} label="Type d'action realisee" name="action_type" />
         <Field label="Resultat" name="result" placeholder="Ex : contact interesse, devis demande..." />
-        <Field label="Compte-rendu" name="report" textarea />
-        <ProspectStatusSelect name="prospect_status_after_action" />
-        <ActionTypeSelect label="Prochaine action" name="next_action_type" />
-        <Field label="Nouvelle date d'echeance" name="next_due_date" type="datetime-local" />
+        <Field label="Commentaire" name="report" textarea />
+        <ProspectStatusSelect
+          defaultValue={thread.prospectStatus}
+          name="prospect_status_after_action"
+          onChange={setProspectStatus}
+        />
+        {!closesThread ? (
+          <>
+            <ActionTypeSelect label="Prochaine action" name="next_action_type" />
+            <Field label="Nouvelle date d'echeance" name="next_due_date" required type="datetime-local" />
+          </>
+        ) : null}
         <PrioritySelect defaultValue={thread.currentPriority} name="priority_after_action" />
         <Field label="Commentaire prochain suivi" name="current_comment" textarea />
         <SubmitButton label="Valider l'action" />
-      </div>
-    </form>
-  );
-}
-
-function UpdateCurrentActionForm({ thread }: { thread: DetailProps["thread"] }) {
-  const [state, action] = useFormState(updateCurrentCommercialAction, initialState);
-
-  return (
-    <form action={action} className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-      <input name="thread_id" type="hidden" value={thread.id} />
-      <h2 className="flex items-center gap-2 text-base font-semibold">
-        <Edit3 size={18} />
-        Modifier la prochaine action
-      </h2>
-      <FormMessage state={state} />
-      <div className="mt-4 grid gap-4">
-        <ActionTypeSelect defaultValue={thread.currentActionType} label="Action a mener" name="current_action_type" />
-        <Field defaultValue={toDateTimeLocal(thread.currentDueDate)} label="Date d'echeance" name="current_due_date" required type="datetime-local" />
-        <PrioritySelect defaultValue={thread.currentPriority} name="current_priority" />
-        <ProspectStatusSelect defaultValue={thread.prospectStatus} name="prospect_status" />
-        <Field defaultValue={thread.currentComment ?? ""} label="Commentaire" name="current_comment" textarea />
-        <SubmitButton label="Modifier" />
-      </div>
-    </form>
-  );
-}
-
-function CloseLostForm({ threadId }: { threadId: string }) {
-  const [state, action] = useFormState(closeCommercialActionAsLost, initialState);
-
-  return (
-    <form action={action} className="rounded-lg border border-red-200 bg-red-50 p-5 shadow-soft xl:col-span-2">
-      <input name="thread_id" type="hidden" value={threadId} />
-      <h2 className="flex items-center gap-2 text-base font-semibold text-red-900">
-        <XCircle size={18} />
-        Cloturer comme perdu
-      </h2>
-      <FormMessage state={state} />
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
-        <Field label="Date de cloture" name="completed_at" type="datetime-local" />
-        <Field label="Raison" name="closed_reason" placeholder="Motif de cloture" />
-        <div className="flex items-end">
-          <SubmitButton label="Cloturer perdu" />
-        </div>
       </div>
     </form>
   );
@@ -290,7 +273,15 @@ function PrioritySelect({ defaultValue = "normale", name }: { defaultValue?: str
   );
 }
 
-function ProspectStatusSelect({ defaultValue = "relance_a_faire", name }: { defaultValue?: string; name: string }) {
+function ProspectStatusSelect({
+  defaultValue = "relance_a_faire",
+  name,
+  onChange
+}: {
+  defaultValue?: string;
+  name: string;
+  onChange?: (value: string) => void;
+}) {
   return (
     <label className="block text-sm font-medium">
       Statut prospect apres action
@@ -298,6 +289,7 @@ function ProspectStatusSelect({ defaultValue = "relance_a_faire", name }: { defa
         className="mt-1 h-11 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
         defaultValue={defaultValue}
         name={name}
+        onChange={(event) => onChange?.(event.target.value)}
       >
         {Object.entries(commercialProspectStatusLabels).map(([value, label]) => (
           <option key={value} value={value}>

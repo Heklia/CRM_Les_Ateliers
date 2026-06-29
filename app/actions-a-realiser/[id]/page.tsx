@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CommercialActionThreadDetail } from "@/components/actions-a-realiser/commercial-action-thread-detail";
 import { getCurrentProfile } from "@/lib/auth/roles";
+import { segmentLabels } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
+import type { SegmentCode } from "@/lib/types";
 
 type ThreadRow = {
   id: string;
@@ -22,9 +24,24 @@ type ThreadRow = {
 
 type ProspectRow = {
   id: string;
+  segment_id: string;
   company_name: string;
+  sub_segment: string | null;
+  address_line1: string | null;
+  postal_code: string | null;
   city: string | null;
   website: string | null;
+  status: string;
+  notes: string | null;
+};
+
+type SegmentRow = {
+  id: string;
+  code: string;
+};
+
+type ProspectSegmentRow = {
+  segment_id: string;
 };
 
 type ContactRow = {
@@ -83,11 +100,13 @@ export default async function ActionThreadDetailPage({
     { data: contact },
     { data: owner },
     { data: events },
-    { data: users }
+    { data: users },
+    { data: segments },
+    { data: prospectSegments }
   ] = await Promise.all([
     supabase
       .from("prospects")
-      .select("id, company_name, city, website")
+      .select("id, segment_id, company_name, sub_segment, address_line1, postal_code, city, website, status, notes")
       .eq("id", threadRow.prospect_id)
       .single(),
     threadRow.contact_id
@@ -103,10 +122,29 @@ export default async function ActionThreadDetailPage({
       .select("id, completed_at, action_type, result, report, prospect_status_after_action, next_action_type, next_due_date, priority_after_action, created_by_user_id, created_at")
       .eq("action_thread_id", threadRow.id)
       .order("completed_at", { ascending: false }),
-    supabase.from("users").select("id, full_name")
+    supabase.from("users").select("id, full_name"),
+    supabase.from("segments").select("id, code"),
+    supabase
+      .from("prospect_segments")
+      .select("segment_id")
+      .eq("prospect_id", threadRow.prospect_id)
   ]);
 
+  if (!prospect) {
+    notFound();
+  }
+
   const userById = new Map(((users ?? []) as UserRow[]).map((user) => [user.id, user.full_name]));
+  const prospectRow = prospect as ProspectRow;
+  const segmentRows = (segments ?? []) as SegmentRow[];
+  const selectedSegmentIds = new Set(
+    ((prospectSegments ?? []) as ProspectSegmentRow[]).map((item) => item.segment_id)
+  );
+  const prospectSegmentNames = segmentRows
+    .filter((segment) => selectedSegmentIds.has(segment.id) || (
+      selectedSegmentIds.size === 0 && segment.id === prospectRow.segment_id
+    ))
+    .map((segment) => segmentLabels[segment.code as SegmentCode] ?? segment.code);
 
   return (
     <main>
@@ -131,7 +169,7 @@ export default async function ActionThreadDetailPage({
         }))}
         ownerName={(owner as UserRow | null)?.full_name ?? "Commercial"}
         profile={profile}
-        prospect={mapProspect(prospect as ProspectRow)}
+        prospect={mapProspect(prospectRow, prospectSegmentNames)}
         thread={{
           id: threadRow.id,
           currentActionType: threadRow.current_action_type,
@@ -149,12 +187,18 @@ export default async function ActionThreadDetailPage({
   );
 }
 
-function mapProspect(prospect: ProspectRow) {
+function mapProspect(prospect: ProspectRow, segments: string[]) {
   return {
     id: prospect.id,
     companyName: prospect.company_name,
+    address: prospect.address_line1,
+    postalCode: prospect.postal_code,
     city: prospect.city,
-    website: prospect.website
+    website: prospect.website,
+    status: prospect.status,
+    segments,
+    activityDetail: prospect.sub_segment,
+    notes: prospect.notes
   };
 }
 
