@@ -258,6 +258,79 @@ export async function updateProspectAssignments(
   return { success: "Affectations prospect mises a jour." };
 }
 
+export async function updateProspectAssignmentsBatch(
+  _previousState: AdminUserState,
+  formData: FormData
+): Promise<AdminUserState> {
+  const access = await ensureAdminAccess();
+  if (!access.ok) return { error: access.error };
+
+  const prospectIds = uniqueIds(formData.getAll("prospect_ids"));
+  if (!prospectIds.length) return { error: "Aucun prospect a mettre a jour." };
+
+  const admin = createAdminClient();
+  if (!admin) return missingServiceRoleError();
+
+  const desiredAssignments = prospectIds.flatMap((prospectId) =>
+    uniqueIds(formData.getAll(`assignment_${prospectId}`)).map((userId) => ({
+      prospect_id: prospectId,
+      user_id: userId,
+      assigned_by: access.profile.id
+    }))
+  );
+  const desiredKeys = new Set(
+    desiredAssignments.map((assignment) =>
+      `${assignment.prospect_id}:${assignment.user_id}`
+    )
+  );
+  const assignmentsTable = admin.from("prospect_assignments") as any;
+
+  if (desiredAssignments.length) {
+    const { error: upsertError } = await assignmentsTable.upsert(
+      desiredAssignments,
+      { onConflict: "prospect_id,user_id" }
+    );
+
+    if (upsertError) {
+      return { error: `Impossible d'enregistrer les affectations : ${upsertError.message}` };
+    }
+  }
+
+  const { data: currentAssignments, error: readError } = await assignmentsTable
+    .select("prospect_id, user_id")
+    .in("prospect_id", prospectIds);
+
+  if (readError) {
+    return { error: `Affectations enregistrees, mais verification impossible : ${readError.message}` };
+  }
+
+  const obsoleteAssignments = ((currentAssignments ?? []) as {
+    prospect_id: string;
+    user_id: string;
+  }[]).filter(
+    (assignment) =>
+      !desiredKeys.has(`${assignment.prospect_id}:${assignment.user_id}`)
+  );
+
+  const deleteResults = await Promise.all(
+    obsoleteAssignments.map((assignment) =>
+      assignmentsTable
+        .delete()
+        .eq("prospect_id", assignment.prospect_id)
+        .eq("user_id", assignment.user_id)
+    )
+  );
+  const deleteError = deleteResults.find((result) => result.error)?.error;
+
+  if (deleteError) {
+    return { error: `Certaines anciennes affectations n'ont pas pu etre retirees : ${deleteError.message}` };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/prospects", "layout");
+  return { success: `${prospectIds.length} prospect(s) mis a jour.` };
+}
+
 export async function updateVisitAssignments(
   _previousState: AdminUserState,
   formData: FormData
