@@ -26,6 +26,7 @@ export type ActionThreadListItem = {
   contactName: string;
   contactPhone: string | null;
   contactEmail: string | null;
+  ownerId: string;
   ownerName: string;
   currentActionType: string;
   currentDueDate: string;
@@ -54,7 +55,7 @@ export function CommercialActionThreadsScreen({
   profile: CurrentProfile;
 }) {
   const [query, setQuery] = useState("");
-  const [owner, setOwner] = useState("");
+  const [owner, setOwner] = useState(profile.id);
   const [priority, setPriority] = useState("");
   const canCreate = profile.role === "admin";
 
@@ -66,17 +67,20 @@ export function CommercialActionThreadsScreen({
         normalized.length === 0 ||
         item.company.toLowerCase().includes(normalized) ||
         item.contactName.toLowerCase().includes(normalized);
-      const matchesOwner = owner === "" || item.ownerName === owner;
+      const matchesOwner = owner === "" || item.ownerId === owner;
       const matchesPriority = priority === "" || item.currentPriority === priority;
 
       return matchesQuery && matchesOwner && matchesPriority;
     });
   }, [items, owner, priority, query]);
 
-  const owners = useMemo(
-    () => Array.from(new Set(items.map((item) => item.ownerName))).sort(),
-    [items]
-  );
+  const owners = useMemo(() => {
+    const byId = new Map(options.users.map((user) => [user.id, user.label]));
+    items.forEach((item) => byId.set(item.ownerId, item.ownerName));
+    return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [items, options.users]);
 
   return (
     <main>
@@ -102,10 +106,10 @@ export function CommercialActionThreadsScreen({
               onChange={(event) => setOwner(event.target.value)}
               value={owner}
             >
-              <option value="">Tous</option>
-              {owners.map((name) => (
-                <option key={name} value={name}>
-                  {name}
+              <option value="">Tous les utilisateurs</option>
+              {owners.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.id === profile.id ? `${user.name} (mes actions)` : user.name}
                 </option>
               ))}
             </select>

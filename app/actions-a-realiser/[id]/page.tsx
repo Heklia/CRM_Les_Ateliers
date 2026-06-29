@@ -20,6 +20,22 @@ type ThreadRow = {
   last_completed_action_at: string | null;
   closed_at: string | null;
   closed_reason: string | null;
+  segment_id?: string;
+  company_name?: string;
+  sub_segment?: string | null;
+  address_line1?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  website?: string | null;
+  crm_status?: string;
+  prospect_notes?: string | null;
+  contact_first_name?: string | null;
+  contact_last_name?: string | null;
+  contact_job_title?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  owner_name?: string | null;
+  segment_codes?: string[];
 };
 
 type ProspectRow = {
@@ -84,11 +100,7 @@ export default async function ActionThreadDetailPage({
     redirect("/login");
   }
 
-  const { data: thread } = await supabase
-    .from("commercial_action_threads")
-    .select("id, prospect_id, contact_id, owner_user_id, current_action_type, current_due_date, current_priority, current_status, prospect_status, current_comment, last_completed_action_at, closed_at, closed_reason")
-    .eq("id", params.id)
-    .single();
+  const { data: thread } = await fetchSharedActionThread(supabase, params.id);
 
   if (!thread) {
     notFound();
@@ -130,21 +142,31 @@ export default async function ActionThreadDetailPage({
       .eq("prospect_id", threadRow.prospect_id)
   ]);
 
-  if (!prospect) {
+  const prospectRow = prospect
+    ? (prospect as ProspectRow)
+    : mapSharedProspect(threadRow);
+  const contactRow = contact
+    ? (contact as ContactRow)
+    : mapSharedContact(threadRow);
+
+  if (!prospectRow) {
     notFound();
   }
 
   const userById = new Map(((users ?? []) as UserRow[]).map((user) => [user.id, user.full_name]));
-  const prospectRow = prospect as ProspectRow;
   const segmentRows = (segments ?? []) as SegmentRow[];
   const selectedSegmentIds = new Set(
     ((prospectSegments ?? []) as ProspectSegmentRow[]).map((item) => item.segment_id)
   );
-  const prospectSegmentNames = segmentRows
-    .filter((segment) => selectedSegmentIds.has(segment.id) || (
-      selectedSegmentIds.size === 0 && segment.id === prospectRow.segment_id
-    ))
-    .map((segment) => segmentLabels[segment.code as SegmentCode] ?? segment.code);
+  const prospectSegmentNames = threadRow.segment_codes?.length
+    ? threadRow.segment_codes.map(
+        (code) => segmentLabels[code as SegmentCode] ?? code
+      )
+    : segmentRows
+        .filter((segment) => selectedSegmentIds.has(segment.id) || (
+          selectedSegmentIds.size === 0 && segment.id === prospectRow.segment_id
+        ))
+        .map((segment) => segmentLabels[segment.code as SegmentCode] ?? segment.code);
 
   return (
     <main>
@@ -154,7 +176,7 @@ export default async function ActionThreadDetailPage({
         </Link>
       </div>
       <CommercialActionThreadDetail
-        contact={contact ? mapContact(contact as ContactRow) : null}
+        contact={contactRow ? mapContact(contactRow) : null}
         events={((events ?? []) as EventRow[]).map((event) => ({
           id: event.id,
           completedAt: event.completed_at,
@@ -167,7 +189,7 @@ export default async function ActionThreadDetailPage({
           priorityAfterAction: event.priority_after_action,
           createdBy: userById.get(event.created_by_user_id) ?? "Commercial"
         }))}
-        ownerName={(owner as UserRow | null)?.full_name ?? "Commercial"}
+        ownerName={threadRow.owner_name ?? (owner as UserRow | null)?.full_name ?? "Commercial"}
         profile={profile}
         prospect={mapProspect(prospectRow, prospectSegmentNames)}
         thread={{
@@ -210,4 +232,50 @@ function mapContact(contact: ContactRow) {
     phone: contact.phone,
     email: contact.email
   };
+}
+
+function mapSharedProspect(thread: ThreadRow): ProspectRow | null {
+  if (!thread.company_name || !thread.segment_id || !thread.crm_status) return null;
+  return {
+    id: thread.prospect_id,
+    segment_id: thread.segment_id,
+    company_name: thread.company_name,
+    sub_segment: thread.sub_segment ?? null,
+    address_line1: thread.address_line1 ?? null,
+    postal_code: thread.postal_code ?? null,
+    city: thread.city ?? null,
+    website: thread.website ?? null,
+    status: thread.crm_status,
+    notes: thread.prospect_notes ?? null
+  };
+}
+
+function mapSharedContact(thread: ThreadRow): ContactRow | null {
+  if (!thread.contact_id) return null;
+  return {
+    id: thread.contact_id,
+    first_name: thread.contact_first_name ?? null,
+    last_name: thread.contact_last_name ?? null,
+    job_title: thread.contact_job_title ?? null,
+    phone: thread.contact_phone ?? null,
+    email: thread.contact_email ?? null
+  };
+}
+
+async function fetchSharedActionThread(supabase: any, threadId: string) {
+  const sharedResult = await supabase
+    .from("shared_commercial_action_threads")
+    .select("id, prospect_id, contact_id, owner_user_id, current_action_type, current_due_date, current_priority, current_status, prospect_status, current_comment, last_completed_action_at, closed_at, closed_reason, segment_id, company_name, sub_segment, address_line1, postal_code, city, website, crm_status, prospect_notes, contact_first_name, contact_last_name, contact_job_title, contact_phone, contact_email, owner_name, segment_codes")
+    .eq("id", threadId)
+    .single();
+
+  if (!sharedResult.error) return { data: sharedResult.data };
+
+  const fallback = await supabase
+    .from("commercial_action_threads")
+    .select("id, prospect_id, contact_id, owner_user_id, current_action_type, current_due_date, current_priority, current_status, prospect_status, current_comment, last_completed_action_at, closed_at, closed_reason")
+    .eq("id", threadId)
+    .single();
+
+  return { data: fallback.data };
 }

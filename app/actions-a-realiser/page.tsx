@@ -17,6 +17,14 @@ type ThreadRow = {
   prospect_status: string;
   current_comment: string | null;
   last_completed_action_at: string | null;
+  company_name?: string;
+  city?: string | null;
+  contact_first_name?: string | null;
+  contact_last_name?: string | null;
+  contact_job_title?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  owner_name?: string | null;
 };
 
 type ProspectRow = {
@@ -55,17 +63,13 @@ export default async function ActionsARealiserPage() {
   }
 
   const [
-    { data: threads },
+    threadsResult,
     { data: prospects },
     { data: contacts },
     { data: users },
     { data: events }
   ] = await Promise.all([
-    supabase
-      .from("commercial_action_threads")
-      .select("id, prospect_id, contact_id, owner_user_id, current_action_type, current_due_date, current_priority, current_status, prospect_status, current_comment, last_completed_action_at")
-      .eq("current_status", "active")
-      .order("current_due_date", { ascending: true }),
+    fetchSharedActionThreads(supabase),
     supabase.from("prospects").select("id, company_name, city").order("company_name", { ascending: true }),
     supabase
       .from("contacts")
@@ -78,7 +82,7 @@ export default async function ActionsARealiserPage() {
       .order("completed_at", { ascending: false })
   ]);
 
-  const threadRows = (threads ?? []) as ThreadRow[];
+  const threadRows = (threadsResult.data ?? []) as ThreadRow[];
   const prospectRows = (prospects ?? []) as ProspectRow[];
   const contactRows = (contacts ?? []) as ContactRow[];
   const userRows = (users ?? []) as UserRow[];
@@ -98,17 +102,19 @@ export default async function ActionsARealiserPage() {
     const prospect = prospectById.get(thread.prospect_id);
     const contact = thread.contact_id ? contactById.get(thread.contact_id) : null;
     const lastEvent = lastEventByThread.get(thread.id);
+    const sharedContactName = formatSharedContactName(thread);
 
     return {
       id: thread.id,
       prospectId: thread.prospect_id,
       contactId: thread.contact_id,
-      company: prospect?.company_name ?? "Prospect",
-      city: prospect?.city ?? null,
-      contactName: contact ? formatContactName(contact) : "Contact non renseigne",
-      contactPhone: contact?.phone ?? null,
-      contactEmail: contact?.email ?? null,
-      ownerName: userById.get(thread.owner_user_id) ?? "Commercial",
+      company: thread.company_name ?? prospect?.company_name ?? "Prospect",
+      city: thread.city ?? prospect?.city ?? null,
+      contactName: sharedContactName ?? (contact ? formatContactName(contact) : "Contact non renseigne"),
+      contactPhone: thread.contact_phone ?? contact?.phone ?? null,
+      contactEmail: thread.contact_email ?? contact?.email ?? null,
+      ownerId: thread.owner_user_id,
+      ownerName: thread.owner_name ?? userById.get(thread.owner_user_id) ?? "Commercial",
       currentActionType: thread.current_action_type,
       currentDueDate: thread.current_due_date,
       currentPriority: thread.current_priority,
@@ -141,6 +147,32 @@ export default async function ActionsARealiserPage() {
 function formatContactName(contact: ContactRow) {
   const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
   return [name || "Contact", contact.job_title].filter(Boolean).join(" - ");
+}
+
+function formatSharedContactName(thread: ThreadRow) {
+  const name = [thread.contact_first_name, thread.contact_last_name].filter(Boolean).join(" ");
+  const label = [name, thread.contact_job_title].filter(Boolean).join(" - ");
+  return label || null;
+}
+
+async function fetchSharedActionThreads(supabase: any) {
+  const sharedResult = await supabase
+    .from("shared_commercial_action_threads")
+    .select("id, prospect_id, contact_id, owner_user_id, current_action_type, current_due_date, current_priority, current_status, prospect_status, current_comment, last_completed_action_at, company_name, city, contact_first_name, contact_last_name, contact_job_title, contact_phone, contact_email, owner_name")
+    .eq("current_status", "active")
+    .order("current_due_date", { ascending: true });
+
+  if (!sharedResult.error) {
+    return { data: sharedResult.data };
+  }
+
+  const fallback = await supabase
+    .from("commercial_action_threads")
+    .select("id, prospect_id, contact_id, owner_user_id, current_action_type, current_due_date, current_priority, current_status, prospect_status, current_comment, last_completed_action_at")
+    .eq("current_status", "active")
+    .order("current_due_date", { ascending: true });
+
+  return { data: fallback.data };
 }
 
 function formatDate(value: string) {
