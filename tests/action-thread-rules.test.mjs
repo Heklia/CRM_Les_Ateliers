@@ -36,9 +36,12 @@ function completeThread(store, threadId, event) {
   thread.lastCompletedActionAt = event.completedAt;
 }
 
-function assertCanModifySharedActions(profile) {
-  if (profile.role !== "admin") {
-    throw new Error("admin_only_shared_actions");
+function assertCanCompleteSharedAction(profile, ownerId) {
+  if (
+    profile.role !== "admin" &&
+    !(profile.role === "modification" && profile.id === ownerId)
+  ) {
+    throw new Error("action_not_assigned");
   }
 }
 
@@ -147,14 +150,30 @@ test("historique reste rattache au couple client/contact via la fiche", () => {
   );
 });
 
-test("actions partagees modifiables uniquement par admin", () => {
-  assert.doesNotThrow(() => assertCanModifySharedActions({ role: "admin" }));
-  assert.throws(
-    () => assertCanModifySharedActions({ role: "modification" }),
-    /admin_only_shared_actions/
+test("action realisable par admin ou utilisateur modification affecte", () => {
+  assert.doesNotThrow(() =>
+    assertCanCompleteSharedAction({ id: "admin", role: "admin" }, "commercial-1")
+  );
+  assert.doesNotThrow(() =>
+    assertCanCompleteSharedAction(
+      { id: "commercial-1", role: "modification" },
+      "commercial-1"
+    )
   );
   assert.throws(
-    () => assertCanModifySharedActions({ role: "lecteur" }),
-    /admin_only_shared_actions/
+    () =>
+      assertCanCompleteSharedAction(
+        { id: "commercial-2", role: "modification" },
+        "commercial-1"
+      ),
+    /action_not_assigned/
+  );
+  assert.throws(
+    () =>
+      assertCanCompleteSharedAction(
+        { id: "commercial-1", role: "lecteur" },
+        "commercial-1"
+      ),
+    /action_not_assigned/
   );
 });

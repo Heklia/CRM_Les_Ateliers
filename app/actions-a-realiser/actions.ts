@@ -83,7 +83,7 @@ export async function completeCommercialActionThread(
   const profile = await getCurrentProfile(supabase);
 
   if (!profile) redirect("/login");
-  if (profile.role !== "admin") return { error: "Seul un admin peut modifier une fiche action partagee." };
+  if (profile.role === "lecteur") return { error: "Votre role ne permet pas de realiser une action." };
 
   const threadId = requiredText(formData, "thread_id", "Fiche action");
   const completedAt = requiredDateTime(formData, "completed_at", "Date de realisation");
@@ -105,6 +105,21 @@ export async function completeCommercialActionThread(
       : requiredDateTime(formData, "next_due_date", "Nouvelle echeance");
 
   if (!threadId.ok) return { error: threadId.error };
+
+  const { data: thread, error: threadError } = await supabase
+    .from("commercial_action_threads")
+    .select("id, owner_user_id, current_status")
+    .eq("id", threadId.data)
+    .single();
+
+  if (threadError || !thread || thread.current_status !== "active") {
+    return { error: "Action introuvable ou deja finalisee." };
+  }
+
+  if (profile.role !== "admin" && thread.owner_user_id !== profile.id) {
+    return { error: "Vous ne pouvez realiser que les actions qui vous sont affectees." };
+  }
+
   if (!completedAt.ok) return { error: completedAt.error };
   if (!actionType.ok) return { error: actionType.error };
   if (!prospectStatus.ok) return { error: prospectStatus.error };

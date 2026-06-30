@@ -181,7 +181,8 @@ export function CommercialActionThreadsScreen({
                         <History size={16} />
                         Historique
                       </Link>
-                      {profile.role === "admin" ? (
+                      {profile.role === "admin" ||
+                      (profile.role === "modification" && item.ownerId === profile.id) ? (
                         <Link
                           className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-white"
                           href={`/actions-a-realiser/${item.id}#realiser`}

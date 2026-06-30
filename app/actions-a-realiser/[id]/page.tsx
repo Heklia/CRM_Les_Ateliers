@@ -194,6 +194,7 @@ export default async function ActionThreadDetailPage({
         prospect={mapProspect(prospectRow, prospectSegmentNames)}
         thread={{
           id: threadRow.id,
+          ownerId: threadRow.owner_user_id,
           currentActionType: threadRow.current_action_type,
           currentDueDate: threadRow.current_due_date,
           currentPriority: threadRow.current_priority,

@@ -54,6 +54,7 @@ type DetailProps = {
   };
   thread: {
     id: string;
+    ownerId: string;
     currentActionType: string;
     currentDueDate: string;
     currentPriority: string;
@@ -76,7 +77,10 @@ export function CommercialActionThreadDetail({
   prospect,
   thread
 }: DetailProps) {
-  const canModify = profile.role === "admin" && thread.currentStatus === "active";
+  const canModify =
+    thread.currentStatus === "active" &&
+    (profile.role === "admin" ||
+      (profile.role === "modification" && thread.ownerId === profile.id));
 
   return (
     <>
