@@ -79,7 +79,7 @@ export async function importQuotes(
     return { error: "Le fichier est trop volumineux. Limite conseillee : 1 Mo." };
   }
 
-  const parsed = parseCsv(await file.text());
+  const parsed = parseCsv(await decodeCsvFile(file));
 
   if (!parsed.ok) {
     return { error: parsed.error };
@@ -394,7 +394,13 @@ function validateQuoteRow(row: CsvRow, line: number) {
 
   if (!companyName) return { ok: false as const, error: `Ligne ${line} : entreprise obligatoire.` };
   if (!quoteCode && !subject) return { ok: false as const, error: `Ligne ${line} : code devis ou sujet obligatoire.` };
-  if (!stage) return { ok: false as const, error: `Ligne ${line} : statut pipeline invalide.` };
+  if (!stage) {
+    const receivedState = row.state?.trim() || "valeur vide ou colonne Etat introuvable";
+    return {
+      ok: false as const,
+      error: `Ligne ${line} : statut pipeline invalide (${receivedState}).`
+    };
+  }
   if (probability === null) return { ok: false as const, error: `Ligne ${line} : probabilite invalide.` };
   if (estimatedValue === null) return { ok: false as const, error: `Ligne ${line} : montant invalide.` };
   if (row.total_cost?.trim() && totalCost === null) return { ok: false as const, error: `Ligne ${line} : debourse invalide.` };
@@ -454,6 +460,24 @@ function parseCsv(content: string) {
         }, {})
       )
   };
+}
+
+async function decodeCsvFile(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder("utf-16le").decode(bytes);
+  }
+
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder("utf-16be").decode(bytes);
+  }
+
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
 }
 
 function parseCsvLines(content: string) {
