@@ -166,7 +166,14 @@ export async function importQuotes(
     const segmentId = validated.data.segmentCode
       ? segmentByCode.get(validated.data.segmentCode) ?? prospect.segment_id
       : prospect.segment_id;
-    const existing = await findExistingOpportunity(supabase, prospect.id, validated.data.title);
+    const existingResult = await findExistingQuote(supabase, validated.data.quoteCode);
+
+    if (existingResult.error) {
+      details.push(`Ligne ${line} : verification du numero de devis impossible (${existingResult.error.message}).`);
+      continue;
+    }
+
+    const existing = existingResult.data;
     const commercialId = representative?.id ?? prospect.commercial_id;
     const payload = {
       prospect_id: prospect.id,
@@ -249,16 +256,18 @@ export async function importQuotes(
   };
 }
 
-async function findExistingOpportunity(supabase: any, prospectId: string, title: string) {
-  const { data } = await supabase
+async function findExistingQuote(supabase: any, quoteCode: string) {
+  const { data, error } = await supabase
     .from("opportunites")
     .select("id, title, won_at")
-    .eq("prospect_id", prospectId);
+    .eq("is_quote", true)
+    .eq("quote_code", quoteCode)
+    .maybeSingle();
 
-  return ((data ?? []) as { id: string; title: string; won_at: string | null }[]).find(
-    (opportunity) =>
-      normalizeProspectDuplicateKey(opportunity.title) === normalizeProspectDuplicateKey(title)
-  ) ?? null;
+  return {
+    data: data as { id: string; title: string; won_at: string | null } | null,
+    error
+  };
 }
 
 function groupProspectsByCompany(prospects: ProspectRow[]) {
@@ -380,7 +389,8 @@ async function createFollowUpThread(
 
 function validateQuoteRow(row: CsvRow, line: number) {
   const companyName = row.company_name?.trim();
-  const quoteCode = row.quote_code?.trim();
+  const rawQuoteCode = row.quote_code?.trim();
+  const quoteCode = rawQuoteCode ? normalizeQuoteCode(rawQuoteCode) : null;
   const subject = row.title?.trim();
   const title = [quoteCode, subject].filter(Boolean).join(" - ") || quoteCode || subject;
   const stage = normalizeStage(row.state);
@@ -393,7 +403,7 @@ function validateQuoteRow(row: CsvRow, line: number) {
   const segmentCode = normalizeSegmentCode(row.segment_code);
 
   if (!companyName) return { ok: false as const, error: `Ligne ${line} : entreprise obligatoire.` };
-  if (!quoteCode && !subject) return { ok: false as const, error: `Ligne ${line} : code devis ou sujet obligatoire.` };
+  if (!quoteCode) return { ok: false as const, error: `Ligne ${line} : code devis obligatoire.` };
   if (!stage) {
     const receivedState = row.state?.trim() || "valeur vide ou colonne Etat introuvable";
     return {
@@ -442,10 +452,10 @@ function parseCsv(content: string) {
 
   const headers = rows[0].map((header) => normalizeHeader(header));
 
-  if (!headers.includes("company_name") || (!headers.includes("quote_code") && !headers.includes("title"))) {
+  if (!headers.includes("company_name") || !headers.includes("quote_code")) {
     return {
       ok: false as const,
-      error: "En-tetes obligatoires manquants : entreprise et code devis ou sujet."
+      error: "En-tetes obligatoires manquants : entreprise et code devis."
     };
   }
 
@@ -623,6 +633,10 @@ function buildProspectKey(companyName: string, postalCode: string | null) {
 
 function normalizeRepresentativeCode(value: string | null | undefined) {
   return (value ?? "").trim().toUpperCase();
+}
+
+function normalizeQuoteCode(value: string) {
+  return value.trim().toUpperCase();
 }
 
 function buildDescription(row: CsvRow, quoteCode?: string, subject?: string) {
