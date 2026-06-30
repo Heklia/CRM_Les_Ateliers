@@ -1,8 +1,10 @@
 "use client";
 
 import { Camera, ImagePlus } from "lucide-react";
-import { useFormState, useFormStatus } from "react-dom";
-import { uploadProspectImage } from "@/app/prospects/[id]/actions";
+import { FormEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { registerProspectImage } from "@/app/prospects/[id]/actions";
+import { createClient } from "@/lib/supabase/client";
 
 type ProspectImageItem = {
   id: string;
@@ -13,18 +15,96 @@ type ProspectImageItem = {
   signedUrl: string | null;
 };
 
-const initialState: { error?: string; success?: string } = {};
+const imageBucket = "prospect-images";
+const maxImageSize = 10 * 1024 * 1024;
+const imageTypes: Record<string, string> = {
+  gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp"
+};
 
 export function ProspectImagesPanel({
   canModify,
+  companyName,
   images,
   prospectId
 }: {
   canModify: boolean;
+  companyName: string;
   images: ProspectImageItem[];
   prospectId: string;
 }) {
-  const [state, formAction] = useFormState(uploadProspectImage, initialState);
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<{ error?: string; success?: string }>({});
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage({});
+
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const image = data.get("image");
+
+    if (!(image instanceof File) || image.size === 0) {
+      setMessage({ error: "Selectionnez une image." });
+      return;
+    }
+
+    const extension = getImageExtension(image);
+    const contentType = image.type || imageTypes[extension];
+
+    if (!extension || !contentType) {
+      setMessage({ error: "Format non accepte. Utilisez JPG, PNG, WEBP, GIF, HEIC ou HEIF." });
+      return;
+    }
+
+    if (image.size > maxImageSize) {
+      setMessage({ error: "L'image ne doit pas depasser 10 Mo." });
+      return;
+    }
+
+    setPending(true);
+    const fileName = `${slugifyFilePart(companyName)}_${formatFileTimestamp(new Date())}.${extension}`;
+    const storagePath = `${prospectId}/${fileName}`;
+    const supabase = createClient();
+    const { error: uploadError } = await supabase.storage
+      .from(imageBucket)
+      .upload(storagePath, image, { contentType, upsert: false });
+
+    if (uploadError) {
+      setPending(false);
+      setMessage({ error: `Envoi impossible vers Supabase (${uploadError.message}).` });
+      return;
+    }
+
+    const metadata = new FormData();
+    metadata.set("prospect_id", prospectId);
+    metadata.set("storage_path", storagePath);
+    metadata.set("file_name", fileName);
+    metadata.set("original_file_name", image.name);
+    metadata.set("content_type", contentType);
+    metadata.set("file_size", String(image.size));
+    metadata.set("notes", String(data.get("notes") ?? ""));
+
+    const result = await registerProspectImage(metadata);
+
+    if (result?.error) {
+      await supabase.storage.from(imageBucket).remove([storagePath]);
+      setMessage({ error: result.error });
+    } else {
+      formRef.current?.reset();
+      setMessage({ success: result?.success ?? "Image ajoutee a la fiche prospect." });
+      router.refresh();
+    }
+
+    setPending(false);
+  }
 
   return (
     <div className="rounded-lg border border-border bg-surface p-5 shadow-soft lg:col-span-2">
@@ -41,14 +121,17 @@ export function ProspectImagesPanel({
       </div>
 
       {canModify ? (
-        <form action={formAction} className="mt-5 grid gap-3 rounded-md border border-border p-4 md:grid-cols-[1fr_1fr_auto]">
-          <input name="prospect_id" type="hidden" value={prospectId} />
+        <form
+          className="mt-5 grid gap-3 rounded-md border border-border p-4 md:grid-cols-[1fr_1fr_auto]"
+          onSubmit={handleSubmit}
+          ref={formRef}
+        >
           <label className="block">
             <span className="mb-1 block text-sm font-medium">Photo ou image</span>
             <input
-              accept="image/*"
-              capture="environment"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
               className="block w-full rounded-md border border-border bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+              disabled={pending}
               name="image"
               required
               type="file"
@@ -58,16 +141,24 @@ export function ProspectImagesPanel({
             <span className="mb-1 block text-sm font-medium">Note</span>
             <input
               className="h-11 w-full rounded-md border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+              disabled={pending}
               name="notes"
               placeholder="Ex : photo showroom, detail facade..."
             />
           </label>
-          <SubmitButton />
-          {state?.error ? (
-            <p className="text-sm font-medium text-red-600 md:col-span-3">{state.error}</p>
+          <button
+            className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 md:mt-6"
+            disabled={pending}
+            type="submit"
+          >
+            <Camera size={17} />
+            {pending ? "Envoi..." : "Ajouter"}
+          </button>
+          {message.error ? (
+            <p className="text-sm font-medium text-red-600 md:col-span-3">{message.error}</p>
           ) : null}
-          {state?.success ? (
-            <p className="text-sm font-medium text-emerald-700 md:col-span-3">{state.success}</p>
+          {message.success ? (
+            <p className="text-sm font-medium text-emerald-700 md:col-span-3">{message.success}</p>
           ) : null}
         </form>
       ) : null}
@@ -109,19 +200,29 @@ export function ProspectImagesPanel({
   );
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+function getImageExtension(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (imageTypes[extension]) return extension === "jpeg" ? "jpg" : extension;
 
+  const match = Object.entries(imageTypes).find(([, mime]) => mime === file.type);
+  return match?.[0] === "jpeg" ? "jpg" : match?.[0] ?? "";
+}
+
+function slugifyFilePart(value: string) {
   return (
-    <button
-      className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 md:mt-6"
-      disabled={pending}
-      type="submit"
-    >
-      <Camera size={17} />
-      {pending ? "Envoi..." : "Ajouter"}
-    </button>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "prospect"
   );
+}
+
+function formatFileTimestamp(date: Date) {
+  const pad = (value: number, length = 2) => String(value).padStart(length, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}${pad(date.getMilliseconds(), 3)}`;
 }
 
 function formatDateTime(value: string) {

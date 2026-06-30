@@ -141,10 +141,7 @@ export async function updateProspectCategory(formData: FormData) {
   revalidatePath("/exports");
 }
 
-export async function uploadProspectImage(
-  _previousState: { error?: string; success?: string },
-  formData: FormData
-) {
+export async function registerProspectImage(formData: FormData) {
   const supabase = createClient() as any;
   const profile = await getCurrentProfile(supabase);
 
@@ -153,22 +150,27 @@ export async function uploadProspectImage(
   }
 
   const prospectId = requiredText(formData, "prospect_id", "Prospect");
-  const file = formData.get("image");
+  const storagePath = requiredText(formData, "storage_path", "Chemin de l'image");
+  const fileName = requiredText(formData, "file_name", "Nom de l'image");
+  const contentType = requiredText(formData, "content_type", "Type de l'image");
+  const originalFileName = String(formData.get("original_file_name") ?? "").trim() || null;
+  const fileSize = Number(String(formData.get("file_size") ?? "0"));
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  if (!prospectId.ok || !(file instanceof File) || file.size === 0) {
-    return { error: "Image obligatoire." };
-  }
+  if (!prospectId.ok) return { error: prospectId.error };
+  if (!storagePath.ok) return { error: storagePath.error };
+  if (!fileName.ok) return { error: fileName.error };
+  if (!contentType.ok) return { error: contentType.error };
 
   if (!canModifyData(profile)) {
     return { error: "Vous n'avez pas les droits pour ajouter une image." };
   }
 
-  if (!file.type.startsWith("image/")) {
+  if (!contentType.data.startsWith("image/")) {
     return { error: "Le fichier doit etre une image." };
   }
 
-  if (file.size > maxImageSize) {
+  if (!Number.isInteger(fileSize) || fileSize <= 0 || fileSize > maxImageSize) {
     return { error: "L'image ne doit pas depasser 10 Mo." };
   }
 
@@ -186,19 +188,11 @@ export async function uploadProspectImage(
     return { error: "Prospect introuvable ou non autorise." };
   }
 
-  const extension = getImageExtension(file);
-  const fileName = `${slugifyFilePart(prospect.company_name)}_${formatFileTimestamp(new Date())}.${extension}`;
-  const storagePath = `${prospect.id}/${fileName}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from(imageBucket)
-    .upload(storagePath, file, {
-      contentType: file.type,
-      upsert: false
-    });
-
-  if (uploadError) {
-    return { error: "Impossible d'enregistrer l'image dans Supabase Storage." };
+  if (
+    storagePath.data !== `${prospect.id}/${fileName.data}` ||
+    !/^[a-z0-9-]+_\d{8}_\d{9}\.[a-z0-9]{2,5}$/.test(fileName.data)
+  ) {
+    return { error: "Nom ou chemin d'image invalide." };
   }
 
   const { error: insertError } = await supabase.from("prospect_images").insert({
@@ -206,17 +200,18 @@ export async function uploadProspectImage(
     commercial_id: prospect.commercial_id,
     created_by: profile.id,
     bucket_id: imageBucket,
-    storage_path: storagePath,
-    file_name: fileName,
-    original_file_name: file.name || null,
-    content_type: file.type,
-    file_size: file.size,
+    storage_path: storagePath.data,
+    file_name: fileName.data,
+    original_file_name: originalFileName,
+    content_type: contentType.data,
+    file_size: fileSize,
     notes
   });
 
   if (insertError) {
-    await supabase.storage.from(imageBucket).remove([storagePath]);
-    return { error: "Image envoyee, mais impossible de la rattacher au prospect." };
+    return {
+      error: `Image envoyee, mais rattachement impossible (${insertError.message}).`
+    };
   }
 
   revalidatePath(`/prospects/${prospect.id}`);
@@ -241,58 +236,4 @@ async function canAccessProspect(
     .maybeSingle();
 
   return Boolean(data);
-}
-
-function getImageExtension(file: File) {
-  const mimeExtensions: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-    "image/heic": "heic",
-    "image/heif": "heif"
-  };
-
-  if (mimeExtensions[file.type]) {
-    return mimeExtensions[file.type];
-  }
-
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  return extension && /^[a-z0-9]{2,5}$/.test(extension) ? extension : "jpg";
-}
-
-function slugifyFilePart(value: string) {
-  const normalized = value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return normalized || "prospect";
-}
-
-function formatFileTimestamp(value: Date) {
-  const parts = new Intl.DateTimeFormat("fr-FR", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  }).formatToParts(value);
-
-  const byType = new Map(parts.map((part) => [part.type, part.value]));
-
-  return [
-    byType.get("year"),
-    byType.get("month"),
-    byType.get("day")
-  ].join("") + "_" + [
-    byType.get("hour"),
-    byType.get("minute"),
-    byType.get("second")
-  ].join("");
 }

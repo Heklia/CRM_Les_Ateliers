@@ -340,6 +340,7 @@ export default async function ProspectDetailPage({
 
         <ProspectImagesPanel
           canModify={canModifyData(profile)}
+          companyName={prospectRow.company_name}
           images={imageItems}
           prospectId={prospectRow.id}
         />
