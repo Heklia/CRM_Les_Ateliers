@@ -60,6 +60,8 @@ type CommercialMetric = {
   quotes: number;
   quoteAmount: number;
   margin: number;
+  marginTotal: number;
+  marginQuoteCount: number;
   completedFollowUps: number;
 };
 
@@ -116,6 +118,7 @@ export function DashboardScreen({
     item.margin === null ? [] : [item.margin]
   );
   const quoteMargin = sum(quoteMargins);
+  const averageQuoteMargin = quoteMargins.length ? quoteMargin / quoteMargins.length : 0;
   const openFollowUps = followUps.filter(
     (item) => matchesCommercial(item.commercialId) && isOpenFollowUp(item)
   );
@@ -233,8 +236,8 @@ export function DashboardScreen({
         <StatCard
           icon={TrendingUp}
           label="Marge / devis"
-          value={formatCurrency(quoteMargin)}
-          detail={quoteMargins.length ? `Moyenne ${formatCurrency(quoteMargin / quoteMargins.length)} sur ${quoteMargins.length} devis` : "Debourse non renseigne"}
+          value={formatCurrency(averageQuoteMargin)}
+          detail={quoteMargins.length ? `Moyenne calculee sur ${quoteMargins.length} devis` : "Debourse non renseigne"}
         />
         <StatCard icon={RefreshCw} label="Relances effectuees" value={`${periodCompletedActions.length}`} detail="Actions de suivi finalisees" />
       </section>
@@ -319,6 +322,11 @@ function CommercialTable({ metrics }: { metrics: CommercialMetric[] }) {
   const totalAssignedProspects = new Set(
     metrics.flatMap((item) => item.assignedProspectIds)
   ).size;
+  const totalMargin = sum(metrics.map((item) => item.marginTotal));
+  const totalMarginQuoteCount = sum(metrics.map((item) => item.marginQuoteCount));
+  const averageTotalMargin = totalMarginQuoteCount
+    ? totalMargin / totalMarginQuoteCount
+    : 0;
   const total = metrics.reduce<CommercialMetric>((acc, item) => ({
     commercialId: "total",
     commercial: "Total",
@@ -328,14 +336,16 @@ function CommercialTable({ metrics }: { metrics: CommercialMetric[] }) {
     prospects: acc.prospects + item.prospects,
     quotes: acc.quotes + item.quotes,
     quoteAmount: acc.quoteAmount + item.quoteAmount,
-    margin: acc.margin + item.margin,
+    margin: averageTotalMargin,
+    marginTotal: totalMargin,
+    marginQuoteCount: totalMarginQuoteCount,
     completedFollowUps: acc.completedFollowUps + item.completedFollowUps
-  }), { commercialId: "total", commercial: "Total", assignedProspects: totalAssignedProspects, assignedProspectIds: [], visits: 0, prospects: 0, quotes: 0, quoteAmount: 0, margin: 0, completedFollowUps: 0 });
+  }), { commercialId: "total", commercial: "Total", assignedProspects: totalAssignedProspects, assignedProspectIds: [], visits: 0, prospects: 0, quotes: 0, quoteAmount: 0, margin: averageTotalMargin, marginTotal: totalMargin, marginQuoteCount: totalMarginQuoteCount, completedFollowUps: 0 });
 
   return (
     <section className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface p-5 shadow-soft">
       <table className="w-full min-w-[850px] text-left text-sm">
-        <thead className="text-xs uppercase text-muted"><tr className="border-b border-border"><th className="py-3">Commercial</th><th>Prospects affectes</th><th>Visites</th><th>Nouveaux prospects</th><th>Devis</th><th>Montant devis</th><th>Marge</th><th>Relances</th></tr></thead>
+        <thead className="text-xs uppercase text-muted"><tr className="border-b border-border"><th className="py-3">Commercial</th><th>Prospects affectes</th><th>Visites</th><th>Nouveaux prospects</th><th>Devis</th><th>Montant devis</th><th>Marge / devis</th><th>Relances</th></tr></thead>
         <tbody>
           {[...metrics, total].map((item) => (
             <tr className={`border-b border-border last:border-0 ${item.commercialId === "total" ? "font-semibold" : ""}`} key={item.commercialId}>
@@ -362,6 +372,10 @@ function buildCommercialMetric(
       (item.assignedUserIds ?? [item.commercialId]).includes(commercial.id)
     )
     .map((item) => item.id);
+  const quoteMargins = quotes.flatMap((item) =>
+    item.margin === null ? [] : [item.margin]
+  );
+  const marginTotal = sum(quoteMargins);
   return {
     commercialId: commercial.id,
     commercial: commercial.name,
@@ -371,7 +385,9 @@ function buildCommercialMetric(
     prospects: prospects.filter((item) => item.commercialId === commercial.id && inPeriod(item.createdAt)).length,
     quotes: quotes.length,
     quoteAmount: sum(quotes.map((item) => item.value)),
-    margin: sum(quotes.flatMap((item) => item.margin === null ? [] : [item.margin])),
+    margin: quoteMargins.length ? marginTotal / quoteMargins.length : 0,
+    marginTotal,
+    marginQuoteCount: quoteMargins.length,
     completedFollowUps: completedActions.filter((item) => item.commercialId === commercial.id && inPeriod(item.completedAt)).length
   };
 }
