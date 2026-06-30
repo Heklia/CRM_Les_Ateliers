@@ -5,7 +5,6 @@ import { canAccessCommercialData, getCurrentProfile } from "@/lib/auth/roles";
 import {
   optionalDateTime,
   optionalEmail,
-  optionalNonNegativeNumber,
   optionalText,
   requiredDateTime,
   requiredEnum,
@@ -17,14 +16,8 @@ type CreateVisitState = {
   error?: string;
 };
 
-const interestMap = {
-  froid: 1,
-  tiede: 3,
-  chaud: 5
-} as const;
 const contactTypes = ["appel", "email", "visite_terrain", "salon", "autre"] as const;
 const nextActionTypes = ["appel", "email", "visite_terrain", "salon", "devis", "autre"] as const;
-const interestLevels = ["froid", "tiede", "chaud"] as const;
 const prospectStatuses = ["en_cours", "qualifie", "client", "perdu"] as const;
 
 export async function createVisitReport(
@@ -41,35 +34,27 @@ export async function createVisitReport(
   const prospectId = requiredText(formData, "prospect_id", "Prospect");
   const visitDate = requiredDateTime(formData, "visite_date", "Date de visite");
   const contactType = requiredEnum(formData, "type", "Type de contact", contactTypes);
-  const need = optionalText(formData, "besoins");
-  const interest = requiredEnum(formData, "niveau_interet", "Niveau d'interet", interestLevels);
   const prospectStatus = requiredEnum(formData, "prospect_status", "Statut du prospect", prospectStatuses);
   const followUpId = optionalText(formData, "follow_up_id");
   const nextActions =
     prospectStatus.ok && prospectStatus.data === "perdu"
       ? ({ ok: true as const, data: null } as const)
       : requiredEnum(formData, "prochaine_etape", "Prochaine action", nextActionTypes);
-  const budget = optionalNonNegativeNumber(formData, "budget_estime", "Budget estime");
   const followUpDate = optionalDateTime(formData, "prochaine_relance_at", "Date de relance");
 
   if (!prospectId.ok) return { error: prospectId.error };
   if (!visitDate.ok) return { error: visitDate.error };
   if (!contactType.ok) return { error: contactType.error };
   if (!nextActions.ok) return { error: nextActions.error };
-  if (!interest.ok) return { error: interest.error };
   if (!prospectStatus.ok) return { error: prospectStatus.error };
-  if (!budget.ok) return { error: budget.error };
   if (!followUpDate.ok) return { error: followUpDate.error };
 
   const validatedProspectId = prospectId.data;
   const validatedVisitDate = visitDate.data;
   const validatedContactType = contactType.data;
-  const validatedNeed = need;
   const validatedNextActions = nextActions.data;
-  const validatedInterest = interest.data;
   const validatedProspectStatus = prospectStatus.data;
   const validatedFollowUpId = followUpId;
-  const validatedBudget = budget.data === null ? null : budget.data * 1000;
   const validatedFollowUpDate = followUpDate.data;
 
   const { data: prospect, error: prospectError } = await supabase
@@ -95,16 +80,7 @@ export async function createVisitReport(
     return { error: contact.error };
   }
 
-  const opportunity = await resolveActionOpportunity(supabase, formData, {
-    commercialId: prospect.commercial_id,
-    prospectId: validatedProspectId,
-    segmentId: prospect.segment_id,
-    stage: validatedProspectStatus === "perdu" ? "refuse" : "en_cours",
-    need: validatedNeed,
-    budget: validatedBudget,
-    projectDate: optionalText(formData, "delai_projet"),
-    interest: validatedInterest
-  });
+  const opportunity = await resolveExistingOpportunity(supabase, formData, validatedProspectId);
 
   if (!opportunity.ok) {
     return { error: opportunity.error };
@@ -120,13 +96,13 @@ export async function createVisitReport(
     statut: "realisee",
     personnes_rencontrees: optionalText(formData, "personnes_rencontrees"),
     resume: buildSummary(formData),
-    besoins: validatedNeed,
-    freins: optionalText(formData, "freins"),
+    besoins: null,
+    freins: null,
     application_envisagee: null,
-    matiere_procede: optionalText(formData, "matiere_procede"),
-    budget_estime: validatedBudget,
-    delai_projet: optionalText(formData, "delai_projet"),
-    niveau_interet: interestMap[validatedInterest],
+    matiere_procede: null,
+    budget_estime: null,
+    delai_projet: null,
+    niveau_interet: null,
     prochaine_etape: validatedProspectStatus === "perdu" ? null : validatedNextActions,
     prochaine_relance_at: validatedProspectStatus === "perdu" ? null : validatedFollowUpDate,
     commentaire: optionalText(formData, "commentaire")
@@ -144,7 +120,6 @@ export async function createVisitReport(
 
   const prospectUpdate = {
     last_interaction_at: validatedVisitDate,
-    interest_level: interestMap[validatedInterest],
     status: validatedProspectStatus,
     ...(validatedProspectStatus === "perdu" ? { pipeline_stage: "refuse" } : {})
   };
@@ -193,7 +168,7 @@ export async function createVisitReport(
       description: optionalText(formData, "commentaire"),
       due_at: validatedFollowUpDate ?? getDefaultFollowUpDate(validatedVisitDate),
       status: "a_faire",
-      priority: validatedInterest === "chaud" ? "haute" : "normale"
+      priority: "normale"
     });
 
     if (actionError) {
@@ -227,10 +202,7 @@ async function canAccessProspect(
 }
 
 function buildSummary(formData: FormData) {
-  const matter = optionalText(formData, "matiere_procede");
-  const need = String(formData.get("besoins") ?? "").trim();
-
-  return [need, matter].filter(Boolean).join(" | ") || "Action commerciale";
+  return optionalText(formData, "commentaire") ?? "Action commerciale";
 }
 
 function getDefaultFollowUpDate(visitDate: string) {
@@ -258,90 +230,22 @@ function getContactTypeLabel(type: (typeof nextActionTypes)[number]) {
   return labels[type];
 }
 
-async function resolveActionOpportunity(
-  supabase: any,
-  formData: FormData,
-  context: {
-    budget: number | null;
-    commercialId: string;
-    interest: keyof typeof interestMap;
-    need: string | null;
-    projectDate: string | null;
-    prospectId: string;
-    segmentId: string;
-    stage: string;
-  }
-) {
+async function resolveExistingOpportunity(supabase: any, formData: FormData, prospectId: string) {
   const opportunityId = optionalText(formData, "opportunite_id");
-  const description = optionalText(formData, "freins");
-  const material = optionalText(formData, "matiere_procede");
-  const hasProjectDetail = Boolean(
-    context.need ||
-      description ||
-      material ||
-      context.budget !== null ||
-      context.projectDate
-  );
-  const payload = {
-    title: context.need ?? "Projet a qualifier",
-    description,
-    estimated_value: context.budget,
-    expected_close_date: context.projectDate,
-    probability: interestMap[context.interest] * 20,
-    stage: context.stage,
-    won_at: null,
-    lost_at: context.stage === "refuse" ? new Date().toISOString() : null,
-    loss_reason: context.stage === "refuse" ? "Refuse apres action" : null
-  };
 
   if (!opportunityId) {
-    if (!hasProjectDetail) {
-      return { ok: true as const, opportunityId: null };
-    }
-
-    const { data: opportunity, error } = await supabase
-      .from("opportunites")
-      .insert({
-        prospect_id: context.prospectId,
-        commercial_id: context.commercialId,
-        segment_id: context.segmentId,
-        ...payload
-      })
-      .select("id")
-      .single();
-
-    if (error || !opportunity) {
-      return { ok: false as const, error: "Impossible de creer l'opportunite depuis le detail du projet." };
-    }
-
-    return { ok: true as const, opportunityId: opportunity.id };
+    return { ok: true as const, opportunityId: null };
   }
 
   const { data: opportunity, error } = await supabase
     .from("opportunites")
     .select("id, title")
     .eq("id", opportunityId)
-    .eq("prospect_id", context.prospectId)
+    .eq("prospect_id", prospectId)
     .single();
 
   if (error || !opportunity) {
     return { ok: false as const, error: "L'opportunite selectionnee n'appartient pas au prospect." };
-  }
-
-  if (!hasProjectDetail) {
-    return { ok: true as const, opportunityId: opportunity.id };
-  }
-
-  const { error: updateError } = await supabase
-    .from("opportunites")
-    .update({
-      ...payload,
-      title: context.need ?? opportunity.title
-    })
-    .eq("id", opportunity.id);
-
-  if (updateError) {
-    return { ok: false as const, error: "Impossible de mettre a jour l'opportunite liee." };
   }
 
   return { ok: true as const, opportunityId: opportunity.id };

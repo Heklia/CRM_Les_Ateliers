@@ -25,14 +25,9 @@ export default async function NewVisitPage({
     .from("contacts")
     .select("id, prospect_id, first_name, last_name, job_title, is_primary")
     .order("is_primary", { ascending: false });
-  const opportunitiesQuery = supabase
-    .from("opportunites")
-    .select("id, prospect_id, title, stage, description, estimated_value, expected_close_date, probability, commercial_id")
-    .order("updated_at", { ascending: false });
-  const [{ data: prospects }, { data: contacts }, { data: opportunities }] = await Promise.all([
+  const [{ data: prospects }, { data: contacts }] = await Promise.all([
     scopeByCommercial(prospectsQuery, profile),
-    scopeByCommercial(contactsQuery, profile),
-    scopeByCommercial(opportunitiesQuery, profile)
+    scopeByCommercial(contactsQuery, profile)
   ]);
   const followUpReminder = searchParams?.follow_up_id
     ? await getFollowUpReminder(supabase, searchParams.follow_up_id)
@@ -44,7 +39,7 @@ export default async function NewVisitPage({
     <main>
       <PageHeader
         title="Nouvelle action"
-        description="Saisie rapide terrain : prospect, personne concernee, besoin, interet et prochaine action."
+        description="Saisie rapide terrain : prospect, personne concernee, compte-rendu et prochaine action."
       />
 
       <VisitReportForm
@@ -52,7 +47,6 @@ export default async function NewVisitPage({
         followUpId={searchParams?.follow_up_id ?? ""}
         initialOpportunityId={initialOpportunityId}
         initialProspectId={initialProspectId}
-        opportunities={opportunities ?? []}
         previousAction={followUpReminder?.previousAction ?? null}
         prospects={prospects ?? []}
       />

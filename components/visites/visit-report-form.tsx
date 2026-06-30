@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { Flame, History, Save, Snowflake, ThermometerSun } from "lucide-react";
+import { History, Save } from "lucide-react";
 import { createVisitReport } from "@/app/visites/new/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -22,17 +22,6 @@ type ContactOption = {
   job_title: string | null;
 };
 
-type OpportunityOption = {
-  id: string;
-  prospect_id: string;
-  title: string;
-  stage: string;
-  description: string | null;
-  estimated_value: number | null;
-  expected_close_date: string | null;
-  probability: number;
-};
-
 type PreviousAction = {
   title: string;
   date: string;
@@ -46,18 +35,11 @@ const initialState: { error?: string } = {
   error: undefined
 };
 
-const interestOptions = [
-  { icon: Snowflake, label: "Froid", value: "froid" },
-  { icon: ThermometerSun, label: "Tiede", value: "tiede" },
-  { icon: Flame, label: "Chaud", value: "chaud" }
-] as const;
-
 export function VisitReportForm({
   contacts,
   followUpId = "",
   initialOpportunityId = "",
   initialProspectId = "",
-  opportunities,
   previousAction,
   prospects
 }: {
@@ -65,32 +47,16 @@ export function VisitReportForm({
   followUpId?: string;
   initialOpportunityId?: string;
   initialProspectId?: string;
-  opportunities: OpportunityOption[];
   previousAction?: PreviousAction | null;
   prospects: ProspectOption[];
 }) {
   const [state, formAction] = useFormState(createVisitReport, initialState);
   const [selectedProspectId, setSelectedProspectId] = useState(initialProspectId);
   const [selectedContactId, setSelectedContactId] = useState("");
-  const [selectedOpportunityId, setSelectedOpportunityId] = useState(initialOpportunityId);
   const [prospectStatus, setProspectStatus] = useState("en_cours");
-  const initialOpportunity = opportunities.find((item) => item.id === initialOpportunityId);
-  const [need, setNeed] = useState(initialOpportunity?.title ?? "");
-  const [pain, setPain] = useState(initialOpportunity?.description ?? "");
-  const [budget, setBudget] = useState(
-    initialOpportunity?.estimated_value === null || initialOpportunity?.estimated_value === undefined
-      ? ""
-      : String(initialOpportunity.estimated_value / 1000)
-  );
-  const [timeline, setTimeline] = useState(initialOpportunity?.expected_close_date ?? "");
-  const [interest, setInterest] = useState(toInterestValue(initialOpportunity?.probability));
   const prospectContacts = useMemo(
     () => contacts.filter((contact) => contact.prospect_id === selectedProspectId),
     [contacts, selectedProspectId]
-  );
-  const prospectOpportunities = useMemo(
-    () => opportunities.filter((opportunity) => opportunity.prospect_id === selectedProspectId),
-    [opportunities, selectedProspectId]
   );
 
   return (
@@ -106,6 +72,9 @@ export function VisitReportForm({
 
       {previousAction ? <PreviousActionReminder previousAction={previousAction} /> : null}
       {followUpId ? <input name="follow_up_id" type="hidden" value={followUpId} /> : null}
+      {initialOpportunityId ? (
+        <input name="opportunite_id" type="hidden" value={initialOpportunityId} />
+      ) : null}
 
       <label className="block text-sm font-medium">
         Prospect
@@ -115,12 +84,6 @@ export function VisitReportForm({
           onChange={(event) => {
             setSelectedProspectId(event.target.value);
             setSelectedContactId("");
-            setSelectedOpportunityId("");
-            setNeed("");
-            setPain("");
-            setBudget("");
-            setTimeline("");
-            setInterest("tiede");
           }}
           required
           value={selectedProspectId}
@@ -162,33 +125,6 @@ export function VisitReportForm({
         </div>
       ) : null}
 
-      <label className="block text-sm font-medium">
-        Opportunite liee
-        <select
-          className="mt-1 h-12 w-full rounded-md border border-border bg-white px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-10 sm:text-sm"
-          name="opportunite_id"
-          onChange={(event) => {
-            const opportunity = opportunities.find((item) => item.id === event.target.value);
-            setSelectedOpportunityId(event.target.value);
-            if (opportunity) {
-              setNeed(opportunity.title);
-              setPain(opportunity.description ?? "");
-              setBudget(opportunity.estimated_value === null ? "" : String(opportunity.estimated_value / 1000));
-              setTimeline(opportunity.expected_close_date ?? "");
-              setInterest(toInterestValue(opportunity.probability));
-            }
-          }}
-          value={selectedOpportunityId}
-        >
-          <option value="">Aucune opportunite</option>
-          {prospectOpportunities.map((opportunity) => (
-            <option key={opportunity.id} value={opportunity.id}>
-              {opportunity.title}
-            </option>
-          ))}
-        </select>
-      </label>
-
       <Field
         defaultValue={getCurrentDateTimeLocal()}
         label="Date de visite"
@@ -212,74 +148,14 @@ export function VisitReportForm({
         </select>
       </label>
 
-      <details className="rounded-md border border-border p-3 lg:col-span-2">
-        <summary className="cursor-pointer text-sm font-semibold">Detail du projet</summary>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Field
-            label="Besoin identifie"
-            name="besoins"
-            onChange={(event) => setNeed(event.target.value)}
-            placeholder="Besoin exprime ou observe"
-            value={need}
-          />
-          <Field
-            label="k€ estime"
-            min="0"
-            name="budget_estime"
-            onChange={(event) => setBudget(event.target.value)}
-            placeholder="15"
-            step="1"
-            type="number"
-            value={budget}
-          />
-          <Field
-            label="Douleur principale"
-            name="freins"
-            onChange={(event) => setPain(event.target.value)}
-            placeholder="Probleme, contrainte, frein actuel"
-            value={pain}
-          />
-          <Field
-            label="Matiere ou procede concerne"
-            name="matiere_procede"
-            placeholder="Usinage 3D, rotomoulage, mineral, composite..."
-          />
-          <Field
-            label="Delai du projet"
-            name="delai_projet"
-            onChange={(event) => setTimeline(event.target.value)}
-            type="date"
-            value={timeline}
-          />
-          <div className="lg:col-span-2">
-            <span className="block text-sm font-medium">Niveau d'interet</span>
-            <div className="mt-1 grid gap-2 sm:grid-cols-3">
-              {interestOptions.map((option) => {
-                const Icon = option.icon;
-
-                return (
-                  <label
-                    className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-white"
-                    key={option.value}
-                  >
-                    <input
-                      checked={option.value === interest}
-                      className="sr-only"
-                      name="niveau_interet"
-                      onChange={() => setInterest(option.value)}
-                      required
-                      type="radio"
-                      value={option.value}
-                    />
-                    <Icon size={18} />
-                    {option.label}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </details>
+      <div className="lg:col-span-2">
+        <Field
+          label="Commentaire libre"
+          name="commentaire"
+          placeholder="Notes complementaires, contexte, resultat de l'echange..."
+          textarea
+        />
+      </div>
 
       <label className="block text-sm font-medium">
         Statut du prospect apres action
@@ -322,15 +198,6 @@ export function VisitReportForm({
           Prospect perdu : aucune prochaine action ne sera creee.
         </p>
       )}
-
-      <div className="lg:col-span-2">
-        <Field
-          label="Commentaire libre"
-          name="commentaire"
-          placeholder="Notes complementaires, contexte, signaux faibles..."
-          textarea
-        />
-      </div>
 
       <div className="sticky bottom-20 z-20 flex justify-end bg-surface/95 py-2 backdrop-blur md:static md:bg-transparent md:py-0 lg:col-span-2">
         <SubmitButton />
@@ -389,12 +256,6 @@ function SubmitButton() {
 function formatContact(contact: ContactOption) {
   const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
   return [name || "Contact", contact.job_title].filter(Boolean).join(" - ");
-}
-
-function toInterestValue(probability?: number | null) {
-  if ((probability ?? 0) >= 70) return "chaud";
-  if ((probability ?? 0) >= 35) return "tiede";
-  return "froid";
 }
 
 function getCurrentDateTimeLocal() {
