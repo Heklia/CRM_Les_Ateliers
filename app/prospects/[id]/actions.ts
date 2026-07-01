@@ -218,6 +218,112 @@ export async function registerProspectImage(formData: FormData) {
   return { success: "Image ajoutee a la fiche prospect." };
 }
 
+export async function updateProspectImage(formData: FormData) {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) redirect("/login");
+
+  const prospectId = requiredText(formData, "prospect_id", "Prospect");
+  const imageId = requiredText(formData, "image_id", "Image");
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  if (!prospectId.ok) return { error: prospectId.error };
+  if (!imageId.ok) return { error: imageId.error };
+  if (!canModifyData(profile)) return { error: "Vous n'avez pas les droits pour modifier cette image." };
+
+  const access = await getProspectImageAccess(supabase, profile, imageId.data, prospectId.data);
+  if (!access.ok) return { error: access.error };
+
+  const newStoragePath = String(formData.get("storage_path") ?? "").trim();
+  const newFileName = String(formData.get("file_name") ?? "").trim();
+  const newContentType = String(formData.get("content_type") ?? "").trim();
+  const newOriginalFileName = String(formData.get("original_file_name") ?? "").trim() || null;
+  const newFileSize = Number(String(formData.get("file_size") ?? "0"));
+  const replacingFile = Boolean(newStoragePath || newFileName || newContentType || newFileSize);
+
+  const update: Record<string, unknown> = { notes };
+  if (replacingFile) {
+    if (
+      newStoragePath !== `${prospectId.data}/${newFileName}` ||
+      !/^[a-z0-9-]+_\d{8}_\d{9}\.[a-z0-9]{2,5}$/.test(newFileName) ||
+      !newContentType.startsWith("image/") ||
+      !Number.isInteger(newFileSize) ||
+      newFileSize <= 0 ||
+      newFileSize > maxImageSize
+    ) {
+      return { error: "La nouvelle image est invalide." };
+    }
+
+    update.storage_path = newStoragePath;
+    update.file_name = newFileName;
+    update.original_file_name = newOriginalFileName;
+    update.content_type = newContentType;
+    update.file_size = newFileSize;
+  }
+
+  const { error } = await supabase.from("prospect_images").update(update).eq("id", imageId.data);
+  if (error) return { error: `Modification impossible (${error.message}).` };
+
+  if (replacingFile && access.image.storage_path !== newStoragePath) {
+    await supabase.storage.from(imageBucket).remove([access.image.storage_path]);
+  }
+
+  revalidatePath(`/prospects/${prospectId.data}`);
+  return { success: "Photo mise a jour." };
+}
+
+export async function deleteProspectImage(formData: FormData) {
+  const supabase = createClient() as any;
+  const profile = await getCurrentProfile(supabase);
+
+  if (!profile) redirect("/login");
+
+  const prospectId = requiredText(formData, "prospect_id", "Prospect");
+  const imageId = requiredText(formData, "image_id", "Image");
+  if (!prospectId.ok) return { error: prospectId.error };
+  if (!imageId.ok) return { error: imageId.error };
+  if (!canModifyData(profile)) return { error: "Vous n'avez pas les droits pour supprimer cette image." };
+
+  const access = await getProspectImageAccess(supabase, profile, imageId.data, prospectId.data);
+  if (!access.ok) return { error: access.error };
+
+  const { error: storageError } = await supabase.storage
+    .from(imageBucket)
+    .remove([access.image.storage_path]);
+  if (storageError) return { error: `Suppression du fichier impossible (${storageError.message}).` };
+
+  const { error: deleteError } = await supabase.from("prospect_images").delete().eq("id", imageId.data);
+  if (deleteError) return { error: `Suppression impossible (${deleteError.message}).` };
+
+  revalidatePath(`/prospects/${prospectId.data}`);
+  return { success: "Photo supprimee." };
+}
+
+async function getProspectImageAccess(
+  supabase: any,
+  profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,
+  imageId: string,
+  prospectId: string
+) {
+  const { data: image, error } = await supabase
+    .from("prospect_images")
+    .select("id, prospect_id, commercial_id, storage_path")
+    .eq("id", imageId)
+    .eq("prospect_id", prospectId)
+    .single();
+
+  if (
+    error ||
+    !image ||
+    !(await canAccessProspect(supabase, profile, image.prospect_id, image.commercial_id))
+  ) {
+    return { ok: false as const, error: "Image introuvable ou non autorisee." };
+  }
+
+  return { ok: true as const, image };
+}
+
 async function canAccessProspect(
   supabase: any,
   profile: NonNullable<Awaited<ReturnType<typeof getCurrentProfile>>>,

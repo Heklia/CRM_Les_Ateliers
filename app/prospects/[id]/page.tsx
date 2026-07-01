@@ -220,6 +220,7 @@ export default async function ProspectDetailPage({
       return {
         id: image.id,
         fileName: image.file_name,
+        storagePath: image.storage_path,
         originalFileName: image.original_file_name,
         notes: image.notes,
         createdAt: image.created_at,
