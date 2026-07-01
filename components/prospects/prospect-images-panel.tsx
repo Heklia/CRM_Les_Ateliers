@@ -79,7 +79,12 @@ export function ProspectImagesPanel({
 
     if (uploadError) {
       setPending(false);
-      setMessage({ error: `Envoi impossible vers Supabase (${uploadError.message}).` });
+      const bucketMissing = /bucket not found/i.test(uploadError.message);
+      setMessage({
+        error: bucketMissing
+          ? "Le stockage des images n'est pas encore active dans Supabase. Un administrateur doit appliquer la migration 015_prospect_images.sql."
+          : `Envoi impossible vers Supabase (${uploadError.message}).`
+      });
       return;
     }
 
