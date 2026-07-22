@@ -7,9 +7,9 @@ import { Field } from "@/components/ui/field";
 export default function LoginPage({
   searchParams
 }: {
-  searchParams: { error?: string };
+  searchParams: { error?: string; success?: string };
 }) {
-  const { error } = searchParams;
+  const { error, success } = searchParams;
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center px-6">
@@ -26,6 +26,11 @@ export default function LoginPage({
         {error ? (
           <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             Identifiants invalides.
+          </p>
+        ) : null}
+        {success === "password_updated" ? (
+          <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            Mot de passe mis a jour. Vous pouvez vous connecter.
           </p>
         ) : null}
         <form action={signIn} className="space-y-4">

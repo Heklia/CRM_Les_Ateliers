@@ -200,7 +200,7 @@ export async function sendPasswordReset(
   const supabase = createClient() as any;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL;
   const redirectTo = siteUrl
-    ? `${siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`}/login`
+    ? `${siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`}/auth/callback?next=/reset-password`
     : undefined;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email.data, {

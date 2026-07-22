@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-const authPaths = new Set(["/login", "/forgot-password"]);
+const authPaths = new Set(["/login", "/forgot-password", "/reset-password", "/auth/callback"]);
 
 export function AppChrome({
   children,

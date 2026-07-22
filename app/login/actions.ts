@@ -33,7 +33,7 @@ export async function requestPasswordReset(formData: FormData) {
   const supabase = createClient() as any;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL;
   const redirectTo = siteUrl
-    ? `${siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`}/login`
+    ? `${siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`}/auth/callback?next=/reset-password`
     : undefined;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -45,4 +45,27 @@ export async function requestPasswordReset(formData: FormData) {
   }
 
   redirect("/forgot-password?success=sent");
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirm_password") ?? "");
+
+  if (password.length < 8) {
+    redirect("/reset-password?error=short_password");
+  }
+
+  if (password !== confirmPassword) {
+    redirect("/reset-password?error=password_mismatch");
+  }
+
+  const supabase = createClient() as any;
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    redirect("/reset-password?error=update_failed");
+  }
+
+  await supabase.auth.signOut();
+  redirect("/login?success=password_updated");
 }
